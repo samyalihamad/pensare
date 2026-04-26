@@ -1,0 +1,29 @@
+{
+  "project": "pensare-plugin-dev",
+  "storage": "git",
+  "git_path": "/Users/samyalihamad/Documents/projects.nosync/pensare/plugin-dev",
+  "template": "workspace",
+  "working_directory": "/Users/samyalihamad/Documents/projects.nosync/pensare",
+  "team_dir": "/Users/samyalihamad/Documents/projects.nosync/pensare/plugin-dev",
+  "context_files": [
+    {
+      "name": "Overview.md",
+      "sections": ["Features", "Bugs"],
+      "sources": [
+        {
+          "type": "github_issue",
+          "repo": "samyalihamad/pensare",
+          "state": "open",
+          "label": "pensare repo"
+        }
+      ]
+    }
+  ],
+  "publish_targets": [
+    {
+      "file": "pensare-plugin-dev_plan.md",
+      "dir": "/Users/samyalihamad/Documents/projects.nosync/pensare/plugin-dev"
+    }
+  ],
+  "last_sync": null
+}

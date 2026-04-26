@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "hot_retention_days": 30,
+  "hot_files": [],
+  "kb_files": [],
+  "last_compaction": null,
+  "compaction_in_progress": false,
+  "legacy_journal_migrated": false
+}
