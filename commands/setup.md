@@ -48,19 +48,46 @@ Interactive wizard to create a new project.
 Ask: "What is the project name? (e.g., my-app, feed-ranking, design-system)"
 Convert to lowercase kebab-case for the folder name. If $ARGUMENTS is provided and non-empty, use it as the project name (still convert to kebab-case).
 
-#### Step 2: Storage Mode
-Ask: "Where should project data be stored?
-1. **Local** — `~/.claude/contexts/` (default, simplest)
-2. **Git** — A directory inside a git repo (persists via git, shared with teammates)
+#### Step 2: Shared Folder
+Ask: "Does this project have a shared folder? This is where published plans and team config live — typically a directory inside your project's git repo that teammates can access.
 
-Enter 1 or 2 (default: 1):"
+Enter a path (e.g., `./docs/.pensare`, `~/projects/my-app/.pensare`), or press enter to keep everything local:"
 
-If Git chosen:
-1. Ask: "What path should the project live at? (e.g., ~/projects/my-app/.pensare, ./docs/.pensare)"
-2. Expand the path and verify it is inside a git repo: `git -C {parent_dir} rev-parse --show-toplevel`
-3. If not in a git repo, tell user: "That path is not inside a git repository. Choose a path within a git repo, or use local storage."
-4. Store `storage: "git"` and `git_path: "{expanded_path}"` in sources.json
-5. The symlink `~/.claude/contexts/{project}` will point to `{git_path}` so all code paths work unchanged.
+If a path is given:
+1. Expand the path and store as `team_dir` in sources.json.
+2. Verify it is inside a git repo: `git -C {parent_dir} rev-parse --show-toplevel`
+   - If not in a git repo, warn: "That path is not inside a git repository. Shared folders work best in git so teammates can sync. Use it anyway? (y/n)"
+3. Check if `{team_dir}/.pensare/` exists:
+   - If YES: Found shared team config! Read `.pensare/sources-base.json` and `.pensare/reconcile.json` (if they exist).
+     - Import context_files, sources, and sections from `sources-base.json` as defaults — tell the user: "Found shared team config with {N} context files and {M} sources. These will be used as your starting point. You can add your own sources in the next steps."
+     - Import reconcile config from `reconcile.json` as the default — tell the user: "Found shared reconcile config with {N} components."
+     - Pre-populate the values for subsequent steps (context files, sources, sections) from the shared config. The user can still modify or add to them.
+   - If NO: No shared config found. Continue with manual setup. Tell the user: "No shared config found at `{team_dir}/.pensare/`. You can create one later to help onboard teammates."
+4. Ask: "Do you have a plan file in the shared folder already? (y/enter filename/n)"
+   - If YES or filename given: note the plan file name for publish_targets config
+   - If NO: offer to create one from template: "Want to create a plan file? (y/n)"
+     If yes, create `{team_dir}/{project_name}_plan.md` with this template:
+     ```markdown
+     # {Project Name} Plan
+
+     ## Status
+
+     {one-line status}
+
+     ## Integration Contract
+
+     ### Inputs
+
+     | Field | Type | Source Component | Status | Notes |
+     |-------|------|-----------------|--------|-------|
+     | | | | | |
+
+     ### Outputs
+
+     | Field | Type | Consumer Component | Status | Notes |
+     |-------|------|-------------------|--------|-------|
+     | | | | | |
+     ```
 
 #### Step 3: Template (Optional)
 Scan `${CLAUDE_PLUGIN_ROOT}/templates/` for `*.json` files. Parse each to get `display_name` and `description`.
@@ -93,43 +120,20 @@ If a template was chosen, after creating the project directory:
   - Write the index file with `index_template` content
 - Write `Overview.md` with the processed `overview_template`
 
-#### Step 4: Team Folder (Optional)
-Ask: "Does this project have a shared team folder? (e.g., a directory in your repo where team members check in plan files)
-Enter the path, or press enter to skip:"
+#### Step 4: Private Storage (only if a shared folder was given in Step 2)
+Ask: "Where should your personal notes, journal, and in-progress work live? This stays private — nothing is published to the shared folder until you run `/pensare publish`.
 
-If a path is given:
-1. Store as `team_dir` in `sources.json`
-2. Check if `{team_dir}/.pensare/` exists:
-   - If YES: Found shared team config! Read `.pensare/sources-base.json` and `.pensare/reconcile.json` (if they exist).
-     - Import context_files, sources, and sections from `sources-base.json` as defaults — tell the user: "Found shared team config with {N} context files and {M} sources. These will be used as your starting point. You can add your own sources in the next steps."
-     - Import reconcile config from `reconcile.json` as the default — tell the user: "Found shared reconcile config with {N} components."
-     - Pre-populate the values for subsequent steps (context files, sources, sections) from the shared config. The user can still modify or add to them.
-   - If NO: No shared config found. Continue with manual setup. Tell the user: "No shared config found at `{team_dir}/.pensare/`. You can create one later to help onboard teammates."
-3. Ask: "Do you have a plan file in the team folder already? (y/enter filename/n)"
-   - If YES or filename given: note the plan file name for publish_targets config
-   - If NO: offer to create one from template: "Want to create a plan file? (y/n)"
-     If yes, create `{team_dir}/{project_name}_plan.md` with this template:
-     ```markdown
-     # {Project Name} Plan
+1. **Local** — `~/.claude/contexts/{project}/` (default, stays on this machine)
+2. **Private git repo** — A directory in a private git repository (persists across machines, stays personal)
 
-     ## Status
+Enter 1 or 2 (default: 1):"
 
-     {one-line status}
-
-     ## Integration Contract
-
-     ### Inputs
-
-     | Field | Type | Source Component | Status | Notes |
-     |-------|------|-----------------|--------|-------|
-     | | | | | |
-
-     ### Outputs
-
-     | Field | Type | Consumer Component | Status | Notes |
-     |-------|------|-------------------|--------|-------|
-     | | | | | |
-     ```
+If Private git repo chosen:
+1. Ask: "What path? (e.g., `~/notes/projects/{project}`, `~/dotfiles/.pensare/{project}`)"
+2. Expand the path and verify it is inside a git repo: `git -C {parent_dir} rev-parse --show-toplevel`
+3. If not in a git repo, tell user: "That path is not inside a git repository. Choose a path within a git repo, or use local storage."
+4. Store `storage: "git"` and `git_path: "{expanded_path}"` in sources.json.
+5. The symlink `~/.claude/contexts/{project}` will point to `{git_path}` so all code paths work unchanged.
 
 #### Step 5: Context Files
 Ask: "What context files should this project have? Each file covers a topic area.
@@ -165,9 +169,9 @@ For each source, ask for a brief label (e.g., "RFC doc", "tracking issue", "team
 For sections: ask "What sections should `{filename}` have? (comma-separated, defaults: Status, Key Decisions, Architecture, Open Items):"
 
 #### Step 7: Create Project
-1. Create the project directory:
-   - **Local mode**: `mkdir -p ~/.claude/contexts/{project}/`
-   - **Git mode**: `mkdir -p {git_path}`, then create symlink: `ln -s {git_path} ~/.claude/contexts/{project}`
+1. Create the private storage directory:
+   - **Local** (no `git_path`): `mkdir -p ~/.claude/contexts/{project}/`
+   - **Private git repo** (`git_path` set): `mkdir -p {git_path}`, then create symlink: `ln -s {git_path} ~/.claude/contexts/{project}`
 2. Create journal and knowledge base subdirectories:
    ```bash
    mkdir -p ~/.claude/contexts/{project}/journal/ ~/.claude/contexts/{project}/kb/
@@ -182,11 +186,11 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
      - Write `{dir_name}/{index_file}` with the `index_template` content
    - Write `Overview.md` with the processed `overview_template` (variable replacements applied)
 5. Write `sources.json` with all collected config (context_files, sources, sections, team_dir, storage mode, template, publish_targets).
-6. If git mode: commit the new project files:
+6. If `git_path` is set: commit the new private project files:
    ```bash
    git -C {git_repo_root} add {relative_path_to_git_path} && git -C {git_repo_root} commit -m "pensare: initialize {project}"
    ```
-7. If `team_dir` is set and no `.pensare/` directory exists, ask: "Want to create a shared team config so teammates can join with `/pensare join`? (y/n)". If yes:
-   - Write `{team_dir}/.pensare/sources-base.json` (context_files and sources from the user's config, without personal journal or local-only settings)
+7. If `team_dir` is set and no `.pensare/` directory exists, ask: "Want to create a shared config so teammates can join with `/pensare join`? (y/n)". If yes:
+   - Write `{team_dir}/.pensare/sources-base.json` (context_files and sources from the user's config, without personal journal or private storage settings)
    - Tell the user: "Shared config created at `{team_dir}/.pensare/`. Commit it to your repo so teammates can run `/pensare join {team_dir}` to onboard."
 8. Offer to run initial sync: "Project created! Run `/pensare sync {project}` to pull sources now?"

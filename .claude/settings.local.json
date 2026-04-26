@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/samyalihamad/.claude/**)",
+      "Bash(chmod +x /Users/samyalihamad/Documents/projects.nosync/pensare/install.sh)",
+      "Bash(./install.sh --dev)",
+      "Bash(git -C /Users/samyalihamad/Documents/projects.nosync/pensare/plugin-dev rev-parse --show-toplevel)",
+      "Bash(git -C /Users/samyalihamad/Documents/projects.nosync/pensare rev-parse --show-toplevel)"
+    ]
+  }
+}
