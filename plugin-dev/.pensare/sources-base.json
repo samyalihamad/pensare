@@ -1,0 +1,18 @@
+{
+  "project": "pensare-plugin-dev",
+  "template": "workspace",
+  "context_files": [
+    {
+      "name": "Overview.md",
+      "sections": ["Features", "Bugs"],
+      "sources": [
+        {
+          "type": "github_issue",
+          "repo": "samyalihamad/pensare",
+          "state": "open",
+          "label": "pensare repo"
+        }
+      ]
+    }
+  ]
+}
