@@ -138,7 +138,9 @@ If Private git repo chosen:
 #### Step 5: Context Files
 Ask: "What context files should this project have? Each file covers a topic area.
 Examples: `Overview.md`, `Architecture.md`, `API-Design.md`
-Enter file names (comma-separated, or press enter for `Overview.md`):"
+Enter file names, comma-separated (type `Overview.md` to use just the default):"
+
+If the user types only `Overview.md` or a single unmodified default name, use it as-is without further confirmation.
 
 #### Step 6: Sources Per File
 For each context file, ask:
