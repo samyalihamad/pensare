@@ -1,0 +1,38 @@
+{
+  "name": "workspace",
+  "display_name": "Workspace",
+  "description": "Long-lived project for tracking recurring work around a tool, system, or team. Includes folders for investigations, debugging runs, and issue tracking.",
+  "setup_questions": [
+    "What are the common types of work you want to track? (e.g., bug investigations, debugging runs, incident response, performance analysis)"
+  ],
+  "structure": {
+    "context_files": [
+      {
+        "name": "Overview.md",
+        "sections": ["Folders", "Conventions", "Historical Context"],
+        "description": "Project overview with folder descriptions and conventions"
+      }
+    ],
+    "directories": [
+      {
+        "name": "incidents",
+        "description": "Incident investigations — root cause analysis, timelines, action items",
+        "index_file": "INDEX.md",
+        "index_template": "# Incidents — Index\n\nQuick index of all incident investigations. Newest first.\n\n| Date | File | ID | Summary | Status |\n|------|------|----|---------|--------|"
+      },
+      {
+        "name": "debugging-runs",
+        "description": "Debug individual failures — metrics, errors, logs",
+        "index_file": "INDEX.md",
+        "index_template": "# Debugging Runs — Index\n\nQuick index of all debugging investigations. Newest first.\n\n| Date | File | ID | Summary |\n|------|------|----|---------|"
+      },
+      {
+        "name": "investigations",
+        "description": "Per-entity investigation logs with historical tracking",
+        "index_file": "index.md",
+        "index_template": "# Investigation Index\n\nTracks all investigations, organized by entity with historical analysis.\n\n## How to Use\n\n- Create one file per investigation: `{date}-{entity_id}-{short_description}.md`\n- Update this index with a row per investigation\n- Group by entity to track recurring issues\n\n---\n\n| Date | Entity | Summary | Status | File |\n|------|--------|---------|--------|------|"
+      }
+    ],
+    "overview_template": "# {project_name} Workspace\n\nGeneral-purpose workspace for investigating and resolving {project_description} problems.\n\n## Folders\n\n| Folder | Purpose | Quick Review |\n|--------|---------|----------|\n{folder_table}\n\n## Conventions\n\n- **Every new entry** in a subfolder must add a corresponding line to that folder's index file.\n- Index entries are reverse-chronological (newest first).\n- Use descriptive filenames: `{date}-{entity_id}-{short_description}.md`\n\n## Historical Context\n\n| File | Description |\n|------|-------------|"
+  }
+}
