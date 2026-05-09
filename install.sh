@@ -39,13 +39,15 @@ else
   rm -rf "$INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
   cp -r "$SCRIPT_DIR/commands" "$SCRIPT_DIR/hooks" "$SCRIPT_DIR/rules" "$SCRIPT_DIR/templates" "$INSTALL_DIR/"
-  [ -f "$SCRIPT_DIR/README.md" ] && cp "$SCRIPT_DIR/README.md" "$INSTALL_DIR/"
-  [ -f "$SCRIPT_DIR/LICENSE"   ] && cp "$SCRIPT_DIR/LICENSE"   "$INSTALL_DIR/"
+  [ -f "$SCRIPT_DIR/README.md"         ] && cp "$SCRIPT_DIR/README.md"         "$INSTALL_DIR/"
+  [ -f "$SCRIPT_DIR/LICENSE"           ] && cp "$SCRIPT_DIR/LICENSE"           "$INSTALL_DIR/"
+  [ -f "$SCRIPT_DIR/kanban-server.py"  ] && cp "$SCRIPT_DIR/kanban-server.py"  "$INSTALL_DIR/"
   echo "  Installed to $INSTALL_DIR"
 fi
 
 chmod +x "$INSTALL_DIR/hooks/inject-rules.sh"
 chmod +x "$INSTALL_DIR/hooks/update-memory.py"
+[ -f "$INSTALL_DIR/kanban-server.py" ] && chmod +x "$INSTALL_DIR/kanban-server.py"
 
 # ── Step 2: Register slash commands ────────────────────────────────────────────
 
@@ -110,6 +112,8 @@ echo ""
 echo "Pensare installed. Start a new Claude Code session to activate."
 echo ""
 echo "Quick start:"
-echo "  /pensare setup   — Create a new project"
-echo "  /pensare load    — Load project context"
-echo "  /pensare help    — Show all commands"
+echo "  /pensare setup        — Create a new project (includes optional kanban board)"
+echo "  /pensare load         — Load project context"
+echo "  /pensare:kanban-add   — Add a work item to the kanban board"
+echo "  /pensare:kanban-ui    — Open the local kanban web viewer"
+echo "  /pensare help         — Show all commands"

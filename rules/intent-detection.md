@@ -21,6 +21,9 @@ Detect natural language intent and route to the appropriate pensare command. Thi
 | "what projects do I have?", "list projects", "show my projects" | `pensare:list` |
 | "save progress", "checkpoint", "snapshot current state" | `pensare:checkpoint` |
 | "compact the journal", "age out old entries", "trim the journal" | `pensare:compact` |
+| "add a work item", "create a ticket", "add to the board", "new kanban item" | `pensare:kanban-add` |
+| "move KB-001 to done", "update KB-002", "mark item as blocked", "change status of {id}" | `pensare:kanban-update` with the item ID |
+| "open the board", "show the kanban", "launch the kanban", "open kanban ui" | `pensare:kanban-ui` |
 
 ## Chaining
 

@@ -1,0 +1,6 @@
+{
+  "columns": ["Backlog", "In Progress", "Blocked", "Done"],
+  "categories": ["Feature", "Bug"],
+  "id_prefix": "PD",
+  "next_id": 1
+}
