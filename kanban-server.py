@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pensare Kanban Server — local view-only kanban board web app.
+Pensare Kanban Server — local kanban board web app with drag-and-drop.
 
 Usage:
     python3 kanban-server.py <project-name> [--port PORT]
@@ -18,6 +18,7 @@ import webbrowser
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
+import datetime
 
 DEFAULT_PORT = 7331
 
@@ -103,6 +104,134 @@ def load_board(kanban_dir: Path) -> dict:
     return {"config": config, "board": board, "columns": columns, "total": len(items)}
 
 
+def update_item(item_path: Path, updates: dict) -> None:
+    """Update frontmatter fields and optionally append a note."""
+    content = item_path.read_text()
+    lines = content.splitlines()
+
+    if not lines or lines[0].strip() != "---":
+        raise ValueError("Missing frontmatter")
+
+    end = -1
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end = i
+            break
+    if end == -1:
+        raise ValueError("Unclosed frontmatter")
+
+    today = datetime.date.today().isoformat()
+    fm_updates = {k: v for k, v in updates.items() if k != "note"}
+    fm_updates["updated"] = today
+
+    new_fm = [lines[0]]
+    for line in lines[1:end]:
+        if ":" in line:
+            key = line.partition(":")[0].strip()
+            if key in fm_updates:
+                new_fm.append(f"{key}: {fm_updates[key]}")
+                fm_updates.pop(key)
+                continue
+        new_fm.append(line)
+    new_fm.append(lines[end])
+
+    body_lines = lines[end + 1:]
+
+    if "note" in updates:
+        note_line = f"- {today}: {updates['note']}"
+        note_idx = -1
+        for i, line in enumerate(body_lines):
+            if line.strip() == "## Notes":
+                note_idx = i
+                break
+        if note_idx == -1:
+            body_lines += ["", "## Notes", "", note_line]
+        else:
+            body_lines.insert(note_idx + 1, note_line)
+
+    item_path.write_text("\n".join(new_fm + body_lines) + "\n")
+
+
+def regenerate_index(kanban_dir: Path) -> None:
+    """Rebuild INDEX.md from all item files."""
+    config_path = kanban_dir / "config.json"
+    config = json.loads(config_path.read_text()) if config_path.exists() else {}
+    columns = config.get("columns", ["Backlog", "In Progress", "Blocked", "Done"])
+    project = kanban_dir.parent.name
+
+    items_dir = kanban_dir / "items"
+    items: list[dict] = []
+    if items_dir.exists():
+        for f in sorted(items_dir.glob("*.md")):
+            try:
+                meta, _ = parse_frontmatter(f.read_text())
+                if meta:
+                    items.append(meta)
+            except OSError:
+                continue
+
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    counts: dict[str, int] = {col: 0 for col in columns}
+    active: list[dict] = []
+    done: list[dict] = []
+
+    for item in items:
+        col = slug_to_column(item.get("status", ""), columns)
+        counts[col] = counts.get(col, 0) + 1
+        if col == columns[-1]:
+            done.append(item)
+        else:
+            active.append(item)
+
+    active.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    done.sort(key=lambda x: x.get("updated", ""), reverse=True)
+
+    today = datetime.date.today().isoformat()
+    lines = [
+        f"# Kanban Board — {project}",
+        "",
+        f"_Last updated: {today}_",
+        "",
+        "## Column Summary",
+        "",
+        "| Column | Count |",
+        "|--------|-------|",
+    ]
+    for col in columns:
+        lines.append(f"| {col} | {counts.get(col, 0)} |")
+
+    lines += ["", "## Active Items", ""]
+    if active:
+        lines += [
+            "| ID | Title | Status | Category | Priority |",
+            "|----|-------|--------|----------|----------|",
+        ]
+        for item in active:
+            lines.append(
+                f"| {item.get('id','—')} | {item.get('title','—')} "
+                f"| {item.get('status','—')} | {item.get('category','')} "
+                f"| {item.get('priority','—')} |"
+            )
+    else:
+        lines.append("_No active items._")
+
+    lines += ["", "## Recently Completed (last 5)", ""]
+    if done:
+        lines += [
+            "| ID | Title | Category | Updated |",
+            "|----|-------|----------|---------|",
+        ]
+        for item in done[:5]:
+            lines.append(
+                f"| {item.get('id','—')} | {item.get('title','—')} "
+                f"| {item.get('category','')} | {item.get('updated','—')} |"
+            )
+    else:
+        lines.append("_No completed items yet._")
+
+    (kanban_dir / "INDEX.md").write_text("\n".join(lines) + "\n")
+
+
 # ── HTML / CSS / JS ──────────────────────────────────────────────────────────
 
 HTML = """\
@@ -177,9 +306,11 @@ header .project{{color:#58a6ff}}
 /* ── Cards ── */
 .card{{
   background:#0d1117;border:1px solid #21262d;border-radius:6px;
-  padding:11px 12px;cursor:default;transition:border-color .12s
+  padding:11px 12px;cursor:grab;transition:border-color .12s,opacity .12s
 }}
 .card:hover{{border-color:#388bfd55}}
+.card.dragging{{opacity:0.35;cursor:grabbing}}
+.column.drag-over{{border-color:#388bfd;background:#161f2e}}
 .card-id{{
   font-size:11px;color:#484f58;
   font-family:ui-monospace,"SF Mono",monospace;margin-bottom:5px
@@ -256,7 +387,9 @@ function categoryTag(cat) {{
 }}
 
 function renderCard(item) {{
-  return `<div class="card">
+  return `<div class="card" draggable="true"
+    ondragstart="dragStart(event,'${{item.id}}')"
+    ondragend="dragEnd(event)">
     <div class="card-id">${{item.id || "—"}}</div>
     <div class="card-title">${{escHtml(item.title || "Untitled")}}</div>
     <div class="card-meta">
@@ -284,7 +417,10 @@ function renderBoard(data) {{
     const cards = items.length
       ? items.map(renderCard).join("")
       : `<div class="empty">No items</div>`;
-    return `<div class="column">
+    return `<div class="column"
+      ondragover="dragOver(event)"
+      ondragleave="dragLeave(event)"
+      ondrop="drop(event,'${{escHtml(col)}}')">
       <div class="col-header">
         <div class="col-dot ${{dotClass(col)}}"></div>
         ${{escHtml(col)}}
@@ -299,6 +435,52 @@ function setStatus(msg, isError) {{
   const el = document.getElementById("statusbar");
   el.textContent = msg;
   el.className = "statusbar" + (isError ? " error" : "");
+}}
+
+let draggedId = null;
+
+function dragStart(e, id) {{
+  draggedId = id;
+  e.dataTransfer.effectAllowed = "move";
+  e.currentTarget.classList.add("dragging");
+}}
+
+function dragEnd(e) {{
+  e.currentTarget.classList.remove("dragging");
+}}
+
+function dragOver(e) {{
+  e.preventDefault();
+  e.currentTarget.classList.add("drag-over");
+}}
+
+function dragLeave(e) {{
+  if (!e.currentTarget.contains(e.relatedTarget)) {{
+    e.currentTarget.classList.remove("drag-over");
+  }}
+}}
+
+function drop(e, col) {{
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  if (!draggedId) return;
+  const slug = col.toLowerCase().replace(/\\s+/g, "-");
+  patch(draggedId, {{status: slug}});
+  draggedId = null;
+}}
+
+async function patch(id, updates) {{
+  try {{
+    const r = await fetch(`/api/items/${{id}}`, {{
+      method: "PATCH",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify(updates)
+    }});
+    if (!r.ok) throw new Error(`HTTP ${{r.status}}`);
+    await fetchBoard();
+  }} catch(e) {{
+    setStatus(`Error: ${{e.message}}`, true);
+  }}
 }}
 
 async function fetchBoard() {{
@@ -362,6 +544,36 @@ class KanbanHandler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+
+    def do_PATCH(self):
+        path = urlparse(self.path).path
+        if not path.startswith("/api/items/"):
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        item_id = path[len("/api/items/"):]
+        item_path = self.kanban_dir / "items" / f"{item_id}.md"
+
+        if not item_path.exists():
+            self.send_json({"error": f"Item {item_id} not found"}, status=404)
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        try:
+            updates = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_json({"error": "Invalid JSON"}, status=400)
+            return
+
+        try:
+            update_item(item_path, updates)
+            regenerate_index(self.kanban_dir)
+            self.send_json({"ok": True})
+        except Exception as exc:
+            self.send_json({"error": str(exc)}, status=500)
 
 
 def make_handler(kanban_dir: Path, project: str):
