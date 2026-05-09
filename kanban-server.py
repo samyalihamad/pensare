@@ -356,7 +356,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(exc)}, status=500)
 
         elif path in ("/", "/index.html"):
-            html = HTML.replace("{project}", self.project)
+            html = HTML.format(project=self.project)
             self.send_html(html)
 
         else:

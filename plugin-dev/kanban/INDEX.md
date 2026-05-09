@@ -9,12 +9,14 @@ _Last updated: 2026-05-09_
 | Backlog | 0 |
 | In Progress | 0 |
 | Blocked | 0 |
-| Done | 0 |
+| Done | 1 |
 
 ## Active Items
 
-_No items yet. Run `/pensare:kanban-add` to create one._
+_No active items._
 
 ## Recently Completed (last 5)
 
-_No completed items yet._
+| ID | Title | Category | Updated |
+|----|-------|----------|---------|
+| PD-001 | Fix kanban-server.py HTML rendering (JS syntax error) | Bug | 2026-05-09 |

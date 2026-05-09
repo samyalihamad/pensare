@@ -1,7 +1,9 @@
 {
   "version": 1,
   "hot_retention_days": 30,
-  "hot_files": [],
+  "hot_files": [
+    {"week": "2026-W19", "one_line": "Fix kanban-server.py: .replace() → .format() to correctly expand CSS/JS brace escapes in HTML template"}
+  ],
   "kb_files": [],
   "last_compaction": null,
   "compaction_in_progress": false,
