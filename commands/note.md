@@ -19,7 +19,7 @@ Determine which project to write to without requiring the user to specify. Check
 
 ## Step 2: Review Conversation and Compose
 
-Review the ENTIRE conversation history. Follow the user's instruction to decide what to capture. Auto-detect and include any of the following that are relevant:
+Review the last 20 conversation turns. Follow the user's instruction to decide what to capture. Auto-detect and include any of the following that are relevant:
 
 - Test results (pass/fail, metrics, durations)
 - Errors encountered and how they were fixed
