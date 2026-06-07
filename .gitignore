@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Next.js
+kanban-app/.next/
+kanban-app/node_modules/
+
+# Claude agent worktrees — ephemeral, never commit
+.claude/worktrees/
+.claude/settings.local.json
