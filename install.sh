@@ -38,16 +38,19 @@ if [ "$DEV_MODE" = true ]; then
 else
   rm -rf "$INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
-  cp -r "$SCRIPT_DIR/commands" "$SCRIPT_DIR/hooks" "$SCRIPT_DIR/rules" "$SCRIPT_DIR/templates" "$INSTALL_DIR/"
+  cp -r "$SCRIPT_DIR/commands" "$SCRIPT_DIR/hooks" "$SCRIPT_DIR/rules" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/lib" "$SCRIPT_DIR/deploy" "$INSTALL_DIR/"
   [ -f "$SCRIPT_DIR/README.md"         ] && cp "$SCRIPT_DIR/README.md"         "$INSTALL_DIR/"
   [ -f "$SCRIPT_DIR/LICENSE"           ] && cp "$SCRIPT_DIR/LICENSE"           "$INSTALL_DIR/"
   [ -f "$SCRIPT_DIR/kanban-server.py"  ] && cp "$SCRIPT_DIR/kanban-server.py"  "$INSTALL_DIR/"
+  # Never ship build artifacts or machine-specific infra config.
+  rm -rf "$INSTALL_DIR/lib/__pycache__" "$INSTALL_DIR/deploy/kanban-lambda.zip" "$INSTALL_DIR/deploy/.pensare-infra.json"
   echo "  Installed to $INSTALL_DIR"
 fi
 
 chmod +x "$INSTALL_DIR/hooks/inject-rules.sh"
 chmod +x "$INSTALL_DIR/hooks/update-memory.py"
 [ -f "$INSTALL_DIR/kanban-server.py" ] && chmod +x "$INSTALL_DIR/kanban-server.py"
+[ -d "$INSTALL_DIR/deploy" ] && chmod +x "$INSTALL_DIR/deploy/"*.sh 2>/dev/null || true
 
 # ── Step 2: Register slash commands ────────────────────────────────────────────
 

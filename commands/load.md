@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Glob, Bash(ls *)
+allowed-tools: Read, Glob, Bash(ls *), Bash(python3 *)
 argument-hint: <keyword>
 description: Load project context and journal into the current session
 ---
@@ -7,6 +7,10 @@ description: Load project context and journal into the current session
 # Load Project Context
 
 Follow these steps exactly to load a Pensare project into the current session.
+
+> **S3-backed projects** (see the **Storage backend** rule): if the resolved project's
+> `sources.json` has `storage: "s3"`, read its files through the storage helper instead of
+> Read/Glob. Fastest is one bulk call: `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} dump --prefix '' --glob '*.md'` for root context files, plus `... read --key journal/manifest.json` and `... read --key journal/{week}.md` for the journal. Everything else in the steps below is identical.
 
 ## Step 1: Find Project
 

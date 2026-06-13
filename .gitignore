@@ -10,3 +10,10 @@ kanban-app/node_modules/
 # Claude agent worktrees — ephemeral, never commit
 .claude/worktrees/
 .claude/settings.local.json
+# Permission grants stay personal to each machine (harness auto-writes these)
+.claude/settings.json
+
+# AWS deploy — machine/account-specific, secrets, build artifacts
+deploy/.pensare-infra.json
+deploy/kanban-lambda.zip
+.board-secret

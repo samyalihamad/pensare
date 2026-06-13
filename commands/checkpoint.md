@@ -1,9 +1,12 @@
 ---
-allowed-tools: Bash(git *), Bash(mkdir *), Read, Write, Edit, Glob
+allowed-tools: Bash(git *), Bash(mkdir *), Read, Write, Edit, Glob, Bash(python3 *)
 description: Auto-save un-journaled session state to the project journal
 ---
 
 # Checkpoint Session State
+
+> **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
+> read/write journal files via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} ...` and skip the git auto-commit.
 
 Automatically captures work from the current session that has not yet been journaled. This command takes no arguments.
 

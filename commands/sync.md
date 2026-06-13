@@ -1,8 +1,11 @@
 ---
-allowed-tools: Bash(git *), Bash(gh *), Bash(mkdir *), Read, Write, Edit, Glob
+allowed-tools: Bash(git *), Bash(gh *), Bash(mkdir *), Read, Write, Edit, Glob, Bash(python3 *)
 argument-hint: [project]
 description: Sync project sources — fetch from GitHub, Slack, Notion, URLs and compress into context files
 ---
+
+> **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
+> write context files and the authoritative `sources.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write ...`, and skip the git auto-commit step.
 
 ## Directory Structure
 

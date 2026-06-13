@@ -12,9 +12,18 @@ Arguments: $ARGUMENTS
 
 Use the project already loaded in the current session context. Do not ask the user for a project name.
 
+**Hosted board (S3 projects):** Read `~/.claude/contexts/{project}/sources.json`. If it has `kanban_hosting.enabled: true`, the board is hosted online — just open its private URL and stop:
+```bash
+open "{kanban_hosting.board_url}"
+```
+Tell the user:
+> "Opened your online kanban board (private link). It reads/writes directly to S3 — no local server. Keep the URL secret; rotate it by re-running `deploy/provision-project.sh {project} --kanban`."
+
+Done — skip the rest of this command.
+
 Look for `--port {N}` in $ARGUMENTS to override the default port (7331).
 
-Verify `~/.claude/contexts/{project}/kanban/` exists. If not, tell the user:
+Verify `~/.claude/contexts/{project}/kanban/` exists (local/git projects). If not, tell the user:
 > "No kanban board configured for '{project}'. Run `/pensare:setup` and enable kanban when prompted."
 
 Stop if kanban folder is missing.

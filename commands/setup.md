@@ -131,13 +131,14 @@ If a template was chosen, after creating the project directory:
   - Write the index file with `index_template` content
 - Write `Overview.md` with the processed `overview_template`
 
-#### Step 4: Private Storage (only if a shared folder was given in Step 2)
+#### Step 4: Private Storage
 Ask: "Where should your personal notes, journal, and in-progress work live? This stays private — nothing is published to the shared folder until you run `/pensare publish`.
 
 1. **Local** — `~/.claude/contexts/{project}/` (default, stays on this machine)
 2. **Private git repo** — A directory in a private git repository (persists across machines, stays personal)
+3. **AWS S3** — Stored in your S3 bucket; reachable from any machine, and required for an online-hosted kanban board
 
-Enter 1 or 2 (default: 1):"
+Enter 1, 2, or 3 (default: 1):"
 
 If Private git repo chosen:
 1. Ask: "What path? (e.g., `~/notes/projects/{project}`, `~/dotfiles/.pensare/{project}`)"
@@ -145,6 +146,12 @@ If Private git repo chosen:
 3. If not in a git repo, tell user: "That path is not inside a git repository. Choose a path within a git repo, or use local storage."
 4. Store `storage: "git"` and `git_path: "{expanded_path}"` in sources.json.
 5. The symlink `~/.claude/contexts/{project}` will point to `{git_path}` so all code paths work unchanged.
+
+If AWS S3 chosen:
+1. Check shared infra exists: `[ -f "${CLAUDE_PLUGIN_ROOT}/deploy/.pensare-infra.json" ]`.
+   - If missing, tell the user: "S3 storage needs a one-time AWS setup. Run `${CLAUDE_PLUGIN_ROOT}/deploy/bootstrap.sh` (it checks your AWS CLI and creates the bucket + Lambda), then re-run setup." Then fall back to Local for now, or stop if the user prefers to set up AWS first.
+2. Run `${CLAUDE_PLUGIN_ROOT}/deploy/provision-project.sh {project}` — this generates the board secret, writes the local **stub** `sources.json` with `storage: "s3"` and the `s3` block, uploads it to S3, and seeds `journal/manifest.json` in S3.
+3. From here on this project is S3-backed: per the **Storage backend** rule, all project file reads/writes in the remaining steps go through `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} ...` instead of the Read/Write tools. Do **not** create local journal/kb directories or a symlink for S3 projects.
 
 #### Step 5: Context Files
 Ask: "What context files should this project have? Each file covers a topic area.
@@ -182,14 +189,18 @@ For each source, ask for a brief label (e.g., "RFC doc", "tracking issue", "team
 For sections: ask "What sections should `{filename}` have? (comma-separated, defaults: Status, Key Decisions, Architecture, Open Items):"
 
 #### Step 7: Create Project
+
+> **If `storage` is `s3`:** the project directory, journal/manifest seed, and stub `sources.json` were already created by `provision-project.sh` in Step 4. Skip the `mkdir`/symlink in items 1–3 below. For every file written in items 4–5 (templates, `Overview.md`, the authoritative `sources.json`), use `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write --key <relpath> --stdin` instead of the Write tool (see the **Storage backend** rule). There are no directories to create on S3 — keys like `kb/foo.md` just work.
+
 1. Create the private storage directory:
    - **Local** (no `git_path`): `mkdir -p ~/.claude/contexts/{project}/`
    - **Private git repo** (`git_path` set): `mkdir -p {git_path}`, then create symlink: `ln -s {git_path} ~/.claude/contexts/{project}`
-2. Create journal and knowledge base subdirectories:
+   - **S3**: already done in Step 4 — skip.
+2. Create journal and knowledge base subdirectories (local/git only):
    ```bash
    mkdir -p ~/.claude/contexts/{project}/journal/ ~/.claude/contexts/{project}/kb/
    ```
-3. Write initial `journal/manifest.json`:
+3. Write initial `journal/manifest.json` (local/git only — S3 was seeded in Step 4):
    ```json
    {"version": 1, "hot_retention_days": 30, "hot_files": [], "kb_files": [], "last_compaction": null, "compaction_in_progress": false, "legacy_journal_migrated": false}
    ```
@@ -227,10 +238,8 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
       Accept a comma-separated list or enter for the default.
 
    c. **Create kanban structure:**
-      ```bash
-      mkdir -p ~/.claude/contexts/{project}/kanban/items/
-      ```
-      Write `~/.claude/contexts/{project}/kanban/config.json`:
+
+      Build the `config.json` content (use the user's chosen columns and categories; keep `id_prefix` as `KB` and `next_id` as `1`):
       ```json
       {
         "columns": ["Backlog", "In Progress", "Blocked", "Done"],
@@ -239,9 +248,15 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
         "next_id": 1
       }
       ```
-      (Use the user's chosen columns and categories; keep `id_prefix` as `KB` and `next_id` as `1`.)
 
-      Write `~/.claude/contexts/{project}/kanban/INDEX.md`:
+      - **Local/git:** `mkdir -p ~/.claude/contexts/{project}/kanban/items/` then write `kanban/config.json` and `kanban/INDEX.md` with the Write tool.
+      - **S3:** write the same files via the storage helper (no mkdir needed):
+        ```bash
+        printf '%s' '{...config json...}' | python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write --key kanban/config.json --stdin
+        ```
+        and likewise for `kanban/INDEX.md`.
+
+      Write `kanban/INDEX.md`:
       ```markdown
       # Kanban Board — {project}
 

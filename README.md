@@ -193,6 +193,19 @@ The git-backed directory is a regular git repository that you can push and pull 
 - Sharing raw context (not just published plans) with teammates
 - Auditing the full history of project knowledge evolution
 
+### AWS S3 (cloud-native)
+
+A project's files (journal, KB, context, kanban) live in a private S3 bucket and are read/written directly through a storage helper — reachable from any machine with no git push/pull, and a prerequisite for the **online kanban board**.
+
+```
+~/.claude/contexts/{project}/sources.json   <-- thin local stub (names the bucket)
+s3://pensare-store-<account>/contexts/{project}/   <-- the real files
+```
+
+A one-time `deploy/bootstrap.sh` creates a single shared bucket + Lambda + Function URL; then each new project just needs a prefix and a secret. Choose **AWS S3** in `/pensare setup` (Step 4) and it's provisioned for you. See [deploy/README.md](deploy/README.md) for setup, security, and cost.
+
+**Online kanban board.** When a project uses S3 storage, `/pensare setup` can host its kanban board online: the same drag-and-drop board is served by an AWS Lambda over a private, secret-gated HTTPS URL — no local server. `/pensare:kanban-ui` opens that URL; `/pensare:kanban-add` and `/pensare:kanban-update` write straight to S3 via shared logic, so the online board and your terminal stay in sync.
+
 ---
 
 ## Project Structure

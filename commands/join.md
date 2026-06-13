@@ -1,8 +1,11 @@
 ---
-allowed-tools: Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Read, Write, Edit, Glob
+allowed-tools: Bash(git *), Bash(gh *), Bash(mkdir *), Bash(ln *), Read, Write, Edit, Glob, Bash(python3 *)
 argument-hint: <team_folder_path>
 description: Join an existing pensare project from shared team config (IC onboarding)
 ---
+
+> **Storage choice on join** (see the **Storage backend** rule): after reading the shared config,
+> offer the same private-storage options as `/pensare:setup` Step 4 (Local / git / **AWS S3**). For S3, run `${CLAUDE_PLUGIN_ROOT}/deploy/provision-project.sh {project}` and seed journal files via the storage helper.
 
 ## Directory Structure
 

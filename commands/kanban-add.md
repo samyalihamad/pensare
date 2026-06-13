@@ -1,8 +1,17 @@
 ---
-allowed-tools: Read, Write, Edit, Glob, Bash(date *), Bash(ls *)
+allowed-tools: Read, Write, Edit, Glob, Bash(date *), Bash(ls *), Bash(python3 *)
 argument-hint: ["title"]
 description: Add a new work item to the kanban board of the loaded project
 ---
+
+> **S3-backed projects:** If `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} backend`
+> prints `s3`, collect the title/category/priority/description as in Steps 1–2 below, then create
+> the item with one call (it assigns the ID, bumps `next_id`, writes to S3, and regenerates the index):
+> ```bash
+> python3 ${CLAUDE_PLUGIN_ROOT}/lib/kanban_core.py --project {project} add \
+>   --title "{title}" [--category "{cat}"] [--priority {high|medium|low}] [--description "{desc}"]
+> ```
+> It prints the new ID. Skip Steps 3–4 (handled by the helper). The local/git flow below is unchanged.
 
 ## Kanban Data Structure
 

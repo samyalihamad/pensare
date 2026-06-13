@@ -1,10 +1,13 @@
 ---
-allowed-tools: Bash(git *), Bash(mkdir *), Read, Write, Edit, Glob
+allowed-tools: Bash(git *), Bash(mkdir *), Read, Write, Edit, Glob, Bash(python3 *)
 argument-hint: <instruction>
 description: Add a journal entry — Claude reviews the session and composes a structured note
 ---
 
 # Add a Journal Entry
+
+> **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
+> read/write `journal/{week}.md` and `journal/manifest.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} read|write ...` (read-modify-write), and **skip** the git auto-commit step — S3 writes are already durable.
 
 The argument is an INSTRUCTION (e.g., "record what we fixed"), not the note text itself. Claude reviews the entire conversation, follows the instruction, and composes the entry.
 

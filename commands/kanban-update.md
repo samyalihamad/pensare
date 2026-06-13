@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Glob, Bash(date *), Bash(ls *)
+allowed-tools: Read, Write, Edit, Glob, Bash(date *), Bash(ls *), Bash(python3 *)
 argument-hint: [item-id]
 description: Update a kanban work item — change status, priority, title, or add a note
 ---
@@ -11,6 +11,18 @@ See `/pensare:kanban-add` for the full data structure reference.
 
 Status slugs: `backlog`, `in-progress`, `blocked`, `done`
 (derived from column names: lowercased, spaces → hyphens)
+
+## S3-backed projects
+
+If `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} backend` prints
+`s3`, do **not** hand-edit files. Resolve the item and the changes interactively as
+below (read config/items with `storage.py read`/`ls`), then apply everything in one
+call — which also regenerates `INDEX.md` and writes to S3:
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/lib/kanban_core.py --project {project} update \
+  --id {ID} [--status {slug}] [--priority {p}] [--title "{t}"] [--note "{text}"]
+```
+Then skip Steps 3–4 (the helper does the write + index). The local/git flow below is unchanged.
 
 # Kanban Update — Edit a Work Item
 
