@@ -1,0 +1,37 @@
+{
+  "name": "study",
+  "display_name": "Study",
+  "description": "Learn a subject through sub-topics and flashcard quizzes. Good for exam prep, courses (math, science, languages), or interview preparation. Quiz any single sub-category or the whole subject.",
+  "setup_questions": [
+    "What subject are you studying? (e.g., Calculus, Organic Chemistry, System Design interviews)",
+    "What sub-categories/topics does it cover? (comma-separated, e.g., Derivatives, Integrals, Limits — you can add more later with /pensare:study-add)"
+  ],
+  "variables": {
+    "subject": { "from_question": 1, "description": "The overall subject being studied" }
+  },
+  "structure": {
+    "context_files": [
+      {
+        "name": "Overview.md",
+        "sections": ["Subject", "Sub-Categories", "Progress", "Study Log"],
+        "description": "Study plan: subject summary, sub-category list with card counts, and a quiz-progress tracker"
+      }
+    ],
+    "directories": [],
+    "dynamic_directories": {
+      "from_question": 2,
+      "description": "Split the answer to setup question 2 on commas. For each item, create one kebab-case directory containing the files below.",
+      "files": [
+        {
+          "name": "flashcards.md",
+          "template": "# Flashcards — {subcategory}\n\n<!--\nAdd flashcards below. Format (leave one blank line between cards):\n\nQ: your question here\nA: the answer (may span multiple lines)\n\nHelpers:\n  /pensare:study-add {subcategory}    add or auto-generate cards\n  /pensare:study-quiz {subcategory}   quiz yourself on this sub-category\n-->\n"
+        },
+        {
+          "name": "notes.md",
+          "template": "# Notes — {subcategory}\n\n_Study notes for {subcategory}: summaries, formulas, worked examples, gotchas._\n\nTip: run `/pensare:study-add {subcategory}` and choose \"generate from notes\" to turn\nthese notes into flashcards.\n"
+        }
+      ]
+    },
+    "overview_template": "# {subject} — Study Plan\n\n_Pensare study project: {project_name}_\n\n## Subject\n\n{project_description}\n\n## Sub-Categories\n\nEach sub-category is a folder with `flashcards.md` (the deck) and `notes.md`.\n\n| Sub-Category | Cards | Last Quiz | Best Score |\n|--------------|-------|-----------|------------|\n{subject_table}\n\nAdd a new sub-category anytime: `/pensare:study-add <new-topic>`\n\n## Progress\n\nQuiz results land here (newest first). Start one with `/pensare:study-quiz`\n(no argument = whole subject, or pass a sub-category name).\n\n| Date | Scope | Score | Missed | Notes |\n|------|-------|-------|--------|-------|\n\n## Study Log\n\nUse `/pensare note` to journal what you studied, weak areas, and goals.\n"
+  }
+}

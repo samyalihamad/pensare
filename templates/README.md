@@ -19,8 +19,11 @@ Each template file must contain a single JSON object with these fields:
 | Field | Type | Description |
 |-------|------|-------------|
 | `context_files` | array | Files to create in the project root. Each has `name`, `sections` (list of heading names), and `description`. |
-| `directories` | array | Subdirectories to create. Each has `name`, `description`, `index_file` (filename for the index), and `index_template` (initial content). |
+| `directories` | array | Fixed subdirectories to create. Each has `name`, `description`, `index_file` (filename for the index), and `index_template` (initial content). |
+| `dynamic_directories` | object | _(optional)_ Create one folder per item from a setup answer. Has `from_question` (1-indexed setup question whose comma-separated answer drives the folders) and `files` (array of `{name, template}` written into each folder, with `{subcategory}` substituted). Used by the **study** template. |
 | `overview_template` | string | Markdown template for the main `Overview.md` file. Uses variable substitution. |
+
+A template may also declare a top-level `variables` object — `{ "var_name": { "from_question": N } }` — to bind a custom `{var_name}` substitution to the answer of setup question `N` (e.g., the study template binds `{subject}` to question 1).
 
 ## Template Variables
 
@@ -43,3 +46,4 @@ Variables use `{variable_name}` syntax and are substituted during project creati
 ## Included Templates
 
 - **workspace.json** -- Long-lived project for investigations, debugging runs, and issue tracking.
+- **study.json** -- Learn a subject through sub-topics and flashcard quizzes (exam prep, courses, interview prep). Scaffolds one folder per sub-category (each with a `flashcards.md` deck and `notes.md`) and an `Overview.md` progress tracker. Pairs with the `/pensare:study-quiz` and `/pensare:study-add` commands.

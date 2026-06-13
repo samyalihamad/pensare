@@ -26,6 +26,13 @@ Files stored in: ~/.claude/contexts/{project}/ (local) or git-tracked directory 
   /pensare list                           List all projects and context files
   /pensare help                           Show this help
 
+### Study (projects created from the Study template)
+
+  /pensare:study-quiz [sub-category]      Flashcard quiz on one sub-category, or
+                                          the whole subject if no argument is given
+  /pensare:study-add [sub-category]       Add flashcards (paste or auto-generate),
+                                          or create a new sub-category
+
 ### Natural Language (just say what you want)
 
   You don't need to remember command names. Just describe what you

@@ -117,6 +117,13 @@ If a template is chosen:
 - Generate the `{folder_table}` replacement from all directories
 - Create the `Overview.md` from `overview_template` with replacements applied
 
+**Study template customization:**
+- This template defines `structure.dynamic_directories` instead of a fixed `directories` list. See "Dynamic directories" in Step 7 — one folder per sub-category is created from the user's answer to setup question 2.
+- Capture custom variables declared in the template's `variables` block. For the study template, `subject` comes from setup question 1 (the answer to "What subject are you studying?"). Store the subject for use in `{subject}` substitution and as the project description if the user didn't give a separate one.
+- Build the `{subject_table}` replacement: one row per sub-category in the form
+  `| {sub-category display name} | {card count, 0 at creation} | — | — |`.
+- Create `Overview.md` from `overview_template` with `{subject}`, `{project_name}`, `{project_description}`, and `{subject_table}` substituted.
+
 **Template directory creation (in Step 7):**
 If a template was chosen, after creating the project directory:
 - For each directory in `structure.directories`:
@@ -187,10 +194,13 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
    {"version": 1, "hot_retention_days": 30, "hot_files": [], "kb_files": [], "last_compaction": null, "compaction_in_progress": false, "legacy_journal_migrated": false}
    ```
 4. If a template was selected, create template directories and files:
-   - For each directory in the template's `structure.directories`:
+   - **Fixed directories** — for each directory in the template's `structure.directories`:
      - `mkdir -p ~/.claude/contexts/{project}/{dir_name}/`
      - Write `{dir_name}/{index_file}` with the `index_template` content
-   - Write `Overview.md` with the processed `overview_template` (variable replacements applied)
+   - **Dynamic directories** — if the template defines `structure.dynamic_directories`:
+     - Read the user's answer to the referenced setup question (`from_question`, 1-indexed) and split it on commas into a list of sub-category names. Convert each to kebab-case for the folder name (keep the original text as the display name).
+     - For each sub-category, `mkdir -p ~/.claude/contexts/{project}/{kebab-name}/`, then for each entry in `files` write `{kebab-name}/{file.name}` using its `template`, substituting `{subcategory}` with the display name.
+   - Write `Overview.md` with the processed `overview_template` (all variable replacements applied, including any template-specific vars such as `{subject}` and `{subject_table}`)
 5. Write `sources.json` with all collected config (context_files, sources, sections, team_dir, storage mode, template, publish_targets).
 6. If `git_path` is set: commit the new private project files:
    ```bash
