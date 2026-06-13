@@ -89,6 +89,14 @@ def load_config(store) -> dict:
         return dict(DEFAULT_CONFIG)
 
 
+def _rank_key(item: dict) -> int:
+    """Secondary sort key: numeric rank if present, else a large sentinel."""
+    try:
+        return int(str(item.get("rank", "")).strip())
+    except (TypeError, ValueError):
+        return 10**9
+
+
 def load_board(store) -> dict:
     config = load_config(store)
     columns = config.get("columns", DEFAULT_CONFIG["columns"])
@@ -111,7 +119,7 @@ def load_board(store) -> dict:
 
     priority_order = {"high": 0, "medium": 1, "low": 2}
     for col in board:
-        board[col].sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+        board[col].sort(key=lambda x: (priority_order.get(x.get("priority", "medium"), 1), _rank_key(x)))
 
     return {"config": config, "board": board, "columns": columns, "total": len(items)}
 
@@ -192,7 +200,7 @@ def regenerate_index(store) -> None:
         else:
             active.append(item)
 
-    active.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    active.sort(key=lambda x: (priority_order.get(x.get("priority", "medium"), 1), _rank_key(x)))
     done.sort(key=lambda x: x.get("updated", ""), reverse=True)
 
     today = datetime.date.today().isoformat()
@@ -247,8 +255,15 @@ def add_item(
     category: str = "",
     priority: str = "medium",
     description: str = "",
+    leetcode: str = "",
+    doc: str = "",
+    rank: str = "",
 ) -> str:
-    """Create a new item file, bump next_id, regenerate the index. Returns the id."""
+    """Create a new item file, bump next_id, regenerate the index. Returns the id.
+
+    Optional ``leetcode`` / ``doc`` URLs and ``rank`` are stored as frontmatter so
+    the board can render them as clickable links (see renderCard in the HTML).
+    """
     config = load_config(store)
     prefix = config.get("id_prefix", "KB")
     next_id = int(config.get("next_id", 1))
@@ -258,6 +273,14 @@ def add_item(
     status = column_to_slug(columns[0]) if columns else "backlog"
     today = datetime.date.today().isoformat()
 
+    extra = ""
+    if rank:
+        extra += f"rank: {rank}\n"
+    if leetcode:
+        extra += f"leetcode: {leetcode}\n"
+    if doc:
+        extra += f"doc: {doc}\n"
+
     item = (
         "---\n"
         f"id: {item_id}\n"
@@ -265,6 +288,7 @@ def add_item(
         f"status: {status}\n"
         f"category: {category}\n"
         f"priority: {priority}\n"
+        f"{extra}"
         f"created: {today}\n"
         f"updated: {today}\n"
         "---\n\n"
@@ -373,6 +397,12 @@ header .project{{color:#58a6ff}}
 .p-medium{{background:#2d2208;color:#e3b341;border:1px solid #433410}}
 .p-low{{background:#1c2128;color:#6e7681;border:1px solid #21262d}}
 .category{{background:#1c2d3d;color:#58a6ff;border:1px solid #1f3a52}}
+.card-links{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+.card-link{{
+  font-size:11px;padding:2px 8px;border-radius:6px;text-decoration:none;
+  background:#15281c;color:#3fb950;border:1px solid #1f4429
+}}
+.card-link:hover{{background:#1a3322}}
 .empty{{
   color:#484f58;font-size:12px;text-align:center;
   padding:22px 10px;font-style:italic
@@ -434,16 +464,26 @@ function categoryTag(cat) {{
   return `<span class="tag category">${{cat}}</span>`;
 }}
 
+function cardLinks(item) {{
+  const links = [];
+  if (item.leetcode) links.push(
+    `<a class="card-link" href="${{escHtml(item.leetcode)}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LeetCode ↗</a>`);
+  if (item.doc) links.push(
+    `<a class="card-link" href="${{escHtml(item.doc)}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Explanation ↗</a>`);
+  return links.length ? `<div class="card-links">${{links.join("")}}</div>` : "";
+}}
+
 function renderCard(item) {{
   return `<div class="card" draggable="true"
     ondragstart="dragStart(event,'${{item.id}}')"
     ondragend="dragEnd(event)">
-    <div class="card-id">${{item.id || "—"}}</div>
+    <div class="card-id">${{item.id || "—"}}${{item.rank ? ` · #${{escHtml(item.rank)}}` : ""}}</div>
     <div class="card-title">${{escHtml(item.title || "Untitled")}}</div>
     <div class="card-meta">
       ${{badge(item.priority)}}
       ${{categoryTag(item.category)}}
     </div>
+    ${{cardLinks(item)}}
   </div>`;
 }}
 
@@ -568,6 +608,9 @@ def main(argv: list[str] | None = None) -> int:
     p_add.add_argument("--category", default="")
     p_add.add_argument("--priority", default="medium")
     p_add.add_argument("--description", default="")
+    p_add.add_argument("--leetcode", default="")
+    p_add.add_argument("--doc", default="")
+    p_add.add_argument("--rank", default="")
 
     p_up = sub.add_parser("update")
     p_up.add_argument("--id", required=True)
@@ -587,6 +630,9 @@ def main(argv: list[str] | None = None) -> int:
             category=args.category,
             priority=args.priority,
             description=args.description,
+            leetcode=args.leetcode,
+            doc=args.doc,
+            rank=args.rank,
         )
         print(item_id)
         return 0
