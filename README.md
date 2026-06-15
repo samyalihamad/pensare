@@ -269,6 +269,18 @@ The command definition file (`commands/pensare.md`) includes intent-matching pat
 
 ---
 
+## Algorithm Visualizations
+
+Project docs can embed interactive, step-by-step algorithm visualizations. Add an
+`algo-viz` fenced JSON block to any markdown doc and it renders as a live widget
+(code-sync pseudocode pane + layered SVG tree + queue + step controls) wherever the
+doc is opened through the hosted board's `/doc` route. The renderer is dependency-free
+(`lib/algo_viz.js` / `.css`, bundled into the Lambda). See
+[docs/algo-viz.md](docs/algo-viz.md) for the block format, schema, how the graph is
+derived from steps, and how to extend it with new layout modes.
+
+---
+
 ## Key Design Decisions
 
 ### Prompt-driven commands, code-driven hooks
