@@ -41,6 +41,21 @@ import storage  # noqa: E402
 BUCKET = os.environ.get("BUCKET", "")
 REGION = os.environ.get("REGION") or os.environ.get("AWS_REGION")
 
+# Bundled, dependency-free algo-viz assets (shipped flat in the Lambda zip).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_asset(name: str) -> str:
+    try:
+        with open(os.path.join(_HERE, name), encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+ALGO_VIZ_JS = _load_asset("algo_viz.js")
+ALGO_VIZ_CSS = _load_asset("algo_viz.css")
+
 # Cache project secrets across warm invocations.
 _secret_cache: dict[str, str] = {}
 
@@ -134,6 +149,7 @@ def _inline_md(text: str) -> str:
 def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> str:
     lines = md.split("\n")
     body: list[str] = []
+    viz_ids: list[str] = []
     i = 0
     in_list = False
 
@@ -145,8 +161,9 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
 
     while i < len(lines):
         line = lines[i]
-        fence = re.match(r"^```(\w*)\s*$", line)
+        fence = re.match(r"^```([\w-]*)\s*$", line)
         if fence:
+            lang = fence.group(1)
             close_list()
             i += 1
             code: list[str] = []
@@ -154,7 +171,21 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
                 code.append(lines[i])
                 i += 1
             i += 1  # skip closing fence
-            body.append("<pre><code>" + _html.escape("\n".join(code)) + "</code></pre>")
+            raw_code = "\n".join(code)
+            if lang == "algo-viz":
+                try:
+                    json.loads(raw_code)  # validate; fall back to <pre> if malformed
+                    vid = f"algoviz-{len(viz_ids)}"
+                    viz_ids.append(vid)
+                    safe = raw_code.replace("</", "<\\/")  # keep it inside <script>
+                    body.append(
+                        f'<div data-algo-viz="{vid}-data"></div>'
+                        f'<script type="application/json" id="{vid}-data">{safe}</script>'
+                    )
+                    continue
+                except Exception:
+                    pass  # malformed JSON -> render as a normal code block
+            body.append("<pre><code>" + _html.escape(raw_code) + "</code></pre>")
             continue
 
         h = re.match(r"^(#{1,6})\s+(.*)$", line)
@@ -185,11 +216,13 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
 
     close_list()
     back = f'<a class="back" href="{_html.escape(back_href)}">&larr; Back to board</a>' if back_href else ""
+    extra_css = ALGO_VIZ_CSS if viz_ids else ""
+    extra_js = f"<script>{ALGO_VIZ_JS}</script>" if (viz_ids and ALGO_VIZ_JS) else ""
     return (
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{_html.escape(title)}</title><style>{_DOC_CSS}</style></head>"
-        f"<body>{back}{''.join(body)}</body></html>"
+        f"<title>{_html.escape(title)}</title><style>{_DOC_CSS}{extra_css}</style></head>"
+        f"<body>{back}{''.join(body)}{extra_js}</body></html>"
     )
 
 
