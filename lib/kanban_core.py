@@ -258,6 +258,7 @@ def add_item(
     leetcode: str = "",
     doc: str = "",
     rank: str = "",
+    flashcards: str = "",
 ) -> str:
     """Create a new item file, bump next_id, regenerate the index. Returns the id.
 
@@ -280,6 +281,8 @@ def add_item(
         extra += f"leetcode: {leetcode}\n"
     if doc:
         extra += f"doc: {doc}\n"
+    if flashcards:
+        extra += f"flashcards: {flashcards}\n"
 
     item = (
         "---\n"
@@ -403,6 +406,8 @@ header .project{{color:#58a6ff}}
   background:#15281c;color:#3fb950;border:1px solid #1f4429
 }}
 .card-link:hover{{background:#1a3322}}
+.card-link.flashcards{{background:#241a33;color:#bc8cff;border-color:#3a2a52}}
+.card-link.flashcards:hover{{background:#2d1f42}}
 .empty{{
   color:#484f58;font-size:12px;text-align:center;
   padding:22px 10px;font-style:italic
@@ -470,6 +475,8 @@ function cardLinks(item) {{
     `<a class="card-link" href="${{escHtml(item.leetcode)}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LeetCode ↗</a>`);
   if (item.doc) links.push(
     `<a class="card-link" href="${{escHtml(item.doc)}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Explanation ↗</a>`);
+  if (item.flashcards) links.push(
+    `<a class="card-link flashcards" href="${{escHtml(item.flashcards)}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Flashcards ↗</a>`);
   return links.length ? `<div class="card-links">${{links.join("")}}</div>` : "";
 }}
 
@@ -611,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
     p_add.add_argument("--leetcode", default="")
     p_add.add_argument("--doc", default="")
     p_add.add_argument("--rank", default="")
+    p_add.add_argument("--flashcards", default="")
 
     p_up = sub.add_parser("update")
     p_up.add_argument("--id", required=True)
@@ -633,6 +641,7 @@ def main(argv: list[str] | None = None) -> int:
             leetcode=args.leetcode,
             doc=args.doc,
             rank=args.rank,
+            flashcards=args.flashcards,
         )
         print(item_id)
         return 0

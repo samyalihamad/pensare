@@ -220,8 +220,9 @@ def handler(event, context):
 
         if method == "GET" and path.rstrip("/") == "/doc":
             key = qs.get("key") or ""
-            # Sandbox: only serve markdown docs under explanations/.
-            if not key.startswith("explanations/") or not key.endswith(".md") or ".." in key:
+            # Sandbox: serve any markdown doc inside the project (secret-gated).
+            # Require .md (keeps .board-secret / *.json unreadable) and block traversal.
+            if not key.endswith(".md") or ".." in key or key.startswith("/"):
                 return _resp(400, {"error": "invalid doc key"})
             if not store.exists(key):
                 return _resp(404, {"error": f"doc {key} not found"})
