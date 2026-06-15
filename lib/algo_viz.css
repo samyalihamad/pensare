@@ -30,8 +30,9 @@
 .av-code li.active::after { content:"◀"; color:var(--av-amber); margin-left:8px; font-size:10px; }
 
 .av-main { display:flex; flex-direction:column; gap:12px; min-width:0; }
-.av-tree { background:var(--av-surface); border:1px solid var(--av-border); border-radius:8px; }
-.av-tree svg { width:100%; height:auto; display:block; }
+.av-tree { background:var(--av-surface); border:1px solid var(--av-border); border-radius:8px;
+  display:flex; justify-content:center; align-items:flex-start; padding:10px; overflow:auto; }
+.av-tree svg { width:100%; height:auto; display:block; }   /* capped to natural size via inline max-width */
 .av-edge { stroke:#30363d; stroke-width:1.6; fill:none; transition:stroke .25s; }
 .av-edge.on { stroke:#3a4252; }
 .av-node circle { transition:fill .25s, stroke .25s, r .2s; stroke-width:2; }
