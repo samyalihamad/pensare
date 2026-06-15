@@ -5,14 +5,16 @@
   --av-text:#e6edf3; --av-muted:#8b949e; --av-blue:#58a6ff; --av-purple:#bc8cff;
   --av-green:#3fb950; --av-red:#f85149; --av-amber:#d29922;
   background:var(--av-bg); color:var(--av-text); border:1px solid var(--av-border);
-  border-radius:12px; padding:16px; margin:1.4rem 0;
+  border-radius:12px; padding:18px; margin:1.6rem 0;
   font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  /* full-bleed: break out of the centered doc column to span the viewport */
+  position:relative; left:50%; transform:translateX(-50%); width:calc(100vw - 32px);
 }
 .av * { box-sizing:border-box; }
 .av-title { font-size:14px; font-weight:600; color:var(--av-muted); letter-spacing:.03em;
   text-transform:uppercase; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
 .av-title::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--av-purple); }
-.av-body { display:grid; grid-template-columns:minmax(280px,1fr) 1.3fr; gap:14px; }
+.av-body { display:grid; grid-template-columns:minmax(300px,460px) 1fr; gap:16px; align-items:start; }
 @media (max-width:760px){ .av-body{ grid-template-columns:1fr; } }
 
 /* code pane */
