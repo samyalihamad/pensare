@@ -226,6 +226,101 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
     )
 
 
+def _extract_vizzes(md: str) -> list:
+    """Pull every ```algo-viz JSON block out of a markdown doc, in order. Lets the
+    board's flashcard modal mount a concept doc's live widget(s) inline without
+    storing the (large) viz JSON in the deck files."""
+    out: list = []
+    lines = md.split("\n")
+    i = 0
+    while i < len(lines):
+        if re.match(r"^```algo-viz\s*$", lines[i]):
+            i += 1
+            buf: list = []
+            while i < len(lines) and not re.match(r"^```\s*$", lines[i]):
+                buf.append(lines[i])
+                i += 1
+            i += 1  # closing fence
+            try:
+                out.append(json.loads("\n".join(buf)))
+            except Exception:
+                pass
+        else:
+            i += 1
+    return out
+
+
+def _parse_flashcards(md: str) -> list:
+    """Parse a `flashcards.md` deck into [{q, a}] pairs.
+
+    Cards are delimited by the `Q:` marker (NOT by blank lines) — answers routinely
+    contain blank lines around code snippets, so a blank line cannot end a card.
+    Everything from a `Q:` up to the next `Q:` is one card; `A:` marks where the
+    answer starts. Lines inside the deck's `<!-- … -->` helper header are skipped."""
+    cards: list[dict] = []
+    q = None
+    a = None
+    in_comment = False
+
+    def flush():
+        if q is not None and q.strip():
+            cards.append({"q": q.strip(), "a": (a or "").strip()})
+
+    for raw in md.split("\n"):
+        line = raw.rstrip("\r")
+        if "<!--" in line:
+            in_comment = True
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        st = line.strip()
+        if st.startswith("Q:"):
+            flush()
+            q, a = st[2:].strip(), None
+        elif st.startswith("A:"):
+            a = st[2:].strip()
+        elif a is not None:
+            a += "\n" + line          # keep blank lines / indentation inside the answer
+        elif q is not None and st:
+            q += " " + st             # rare: a question wrapped across lines
+    flush()
+    return cards
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def _deck_list(store) -> list:
+    """Decks for the Study view: parse Overview.md's Sub-Categories table (name /
+    last-quiz / best-score) and count live cards from each `{slug}/flashcards.md`."""
+    decks: list = []
+    try:
+        md = store.read("Overview.md")
+    except Exception:
+        return decks
+    for line in md.split("\n"):
+        s = line.strip()
+        if not s.startswith("|"):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) != 4:  # the Sub-Categories table; the Progress table has 5 cols
+            continue
+        name, _cards_col, lastq, best = cells
+        if name.lower() == "sub-category" or set(name) <= set("-: "):  # header / separator
+            continue
+        slug = _slugify(name)
+        key = f"{slug}/flashcards.md"
+        cards = len(_parse_flashcards(store.read(key))) if store.exists(key) else 0
+        decks.append({
+            "topic": name, "slug": slug, "key": key, "cards": cards,
+            "lastQuiz": "" if lastq in ("", "—") else lastq,
+            "bestScore": "" if best in ("", "—") else best,
+        })
+    return decks
+
+
 def handler(event, context):
     method, path, headers, qs = _event_bits(event)
 
@@ -251,6 +346,28 @@ def handler(event, context):
         if method == "GET" and path.rstrip("/") == "/api/board":
             return _resp(200, kanban_core.load_board(store))
 
+        if method == "GET" and path.rstrip("/") == "/api/flashcards":
+            # Parsed Q/A for a deck, so the board can show an in-page flip-card modal
+            # instead of opening the raw flashcards.md file as a separate page.
+            key = qs.get("key") or ""
+            if not key.endswith(".md") or ".." in key or key.startswith("/"):
+                return _resp(400, {"error": "invalid deck key"})
+            if not store.exists(key):
+                return _resp(404, {"error": f"deck {key} not found"})
+            return _resp(200, {"key": key, "cards": _parse_flashcards(store.read(key))})
+
+        if method == "GET" and path.rstrip("/") == "/api/decks":
+            return _resp(200, {"decks": _deck_list(store)})
+
+        if method == "GET" and path.rstrip("/") == "/api/viz":
+            # algo-viz JSON blocks from a doc, so the flashcard modal can mount them inline.
+            key = qs.get("key") or ""
+            if not key.endswith(".md") or ".." in key or key.startswith("/"):
+                return _resp(400, {"error": "invalid key"})
+            if not store.exists(key):
+                return _resp(404, {"error": f"doc {key} not found"})
+            return _resp(200, {"key": key, "vizzes": _extract_vizzes(store.read(key))})
+
         if method == "GET" and path.rstrip("/") == "/doc":
             key = qs.get("key") or ""
             # Sandbox: serve any markdown doc inside the project (secret-gated).
@@ -267,6 +384,10 @@ def handler(event, context):
 
         if method == "GET" and not path.startswith("/api/"):
             html = kanban_core.render_board_html(project, secret=supplied)
+            # bundle the algo-viz renderer so the flashcard modal can mount viz inline
+            if ALGO_VIZ_CSS or ALGO_VIZ_JS:
+                inject = f"<style>{ALGO_VIZ_CSS}</style><script>{ALGO_VIZ_JS}</script>"
+                html = html.replace("</body>", inject + "</body>", 1)
             return _resp(200, html, content_type="text/html; charset=utf-8")
 
         if method == "PATCH" and "/api/items/" in path:
