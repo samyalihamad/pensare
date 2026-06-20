@@ -525,6 +525,28 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 .deck-meta{{font-size:11px;color:#7d8590;display:flex;gap:14px;align-items:center}}
 .deck-open{{margin-left:auto;flex-shrink:0}}
 .study-empty{{color:#484f58;font-size:12px;font-style:italic;padding:8px 2px}}
+
+/* ── Build tab ── */
+.build-hero{{margin-bottom:18px}}
+.build-title{{font-size:22px;font-weight:700;color:#e6edf3;margin-bottom:6px}}
+.build-sub{{font-size:13px;color:#8b949e;line-height:1.6;max-width:760px}}
+.build-sub code{{background:#161b22;padding:.1em .4em;border-radius:4px;color:#e3b341;font-size:.92em}}
+.build-prog{{display:flex;align-items:center;gap:12px;margin-top:14px;font-size:13px;color:#8b949e}}
+.build-prog b{{color:#3fb950;font-size:15px}}
+.build-chips{{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-left:8px}}
+.tag.dsa{{background:#1c2d3d;color:#58a6ff;border:1px solid #1f3a52;font-size:10px;padding:2px 7px;border-radius:10px}}
+.tag.file-tag{{background:#15281c;color:#3fb950;border:1px solid #1f4429;font-size:10px;padding:2px 7px;border-radius:10px;font-family:ui-monospace,monospace}}
+.tag.reuse{{background:#2d2208;color:#e3b341;border:1px solid #433410;font-size:10px;padding:2px 7px;border-radius:10px}}
+.lesson-soon{{font-size:11px;color:#484f58;font-style:italic}}
+.filetree{{background:#0b0f14;border:1px solid #21262d;border-radius:8px;overflow:hidden;font-family:ui-monospace,"SF Mono",monospace}}
+.ft-row{{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid #12161d;font-size:12.5px;color:#c9d1d9}}
+.ft-head{{background:#161b22;color:#e6edf3;font-weight:600;border-top:none}}
+.ft-name{{display:flex;align-items:center;gap:6px}}
+.ft-tag{{font-size:10px;color:#6e7681;background:#161b22;padding:2px 8px;border-radius:10px}}
+.ft-prog{{font-size:11px;color:#7d8590}}
+.ft-row.ready{{background:rgba(63,185,80,.07)}}
+.ft-row.ready .ft-name{{color:#3fb950}}
+.ft-row.ready .ft-prog{{color:#3fb950}}
 </style>
 </head>
 <body>
@@ -534,6 +556,7 @@ button.card-link{{font-family:inherit;cursor:pointer}}
   <div class="tabs">
     <button class="tab on" id="tabKanban" onclick="showTab('kanban')">Kanban</button>
     <button class="tab" id="tabStudy" onclick="showTab('study')">Study</button>
+    <button class="tab" id="tabBuild" onclick="showTab('build')">Build</button>
   </div>
   <span class="item-count" id="count"></span>
 </header>
@@ -541,6 +564,7 @@ button.card-link{{font-family:inherit;cursor:pointer}}
   <div style="color:#484f58;padding:20px;font-size:13px">Loading&hellip;</div>
 </div>
 <div class="study" id="studyView" style="display:none"></div>
+<div class="study" id="buildView" style="display:none"></div>
 <div class="statusbar" id="statusbar">Connecting&hellip;</div>
 
 <div class="fc-overlay" id="fcOverlay" onclick="if(event.target===this)fcClose()">
@@ -642,14 +666,15 @@ function renderBoard(data) {{
   lastBoardData = data;
   const board = document.getElementById("board");
   const count = document.getElementById("count");
-  // Concept items live in the Study › Concepts tab, not on the kanban.
-  const isConcept = it => (it.category || "") === "Concept";
-  const shownTotal = data.columns.reduce((a, col) => a + (data.board[col] || []).filter(it => !isConcept(it)).length, 0);
+  // Concept / Build items have their own tabs, not the kanban.
+  const offBoard = it => ["Concept", "Build"].includes(it.category || "");
+  const shownTotal = data.columns.reduce((a, col) => a + (data.board[col] || []).filter(it => !offBoard(it)).length, 0);
   count.textContent = `${{shownTotal}} item${{shownTotal === 1 ? "" : "s"}}`;
   if (currentTab === "study") renderStudy();
+  else if (currentTab === "build") renderBuild();
 
   board.innerHTML = data.columns.map(col => {{
-    const items = (data.board[col] || []).filter(it => !isConcept(it));
+    const items = (data.board[col] || []).filter(it => !offBoard(it));
     const cards = items.length
       ? items.map(renderCard).join("")
       : `<div class="empty">No items</div>`;
@@ -678,9 +703,12 @@ function showTab(tab) {{
   currentTab = tab;
   document.getElementById("tabKanban").classList.toggle("on", tab === "kanban");
   document.getElementById("tabStudy").classList.toggle("on", tab === "study");
+  document.getElementById("tabBuild").classList.toggle("on", tab === "build");
   document.getElementById("board").style.display = tab === "kanban" ? "flex" : "none";
   document.getElementById("studyView").style.display = tab === "study" ? "block" : "none";
+  document.getElementById("buildView").style.display = tab === "build" ? "block" : "none";
   if (tab === "study") {{ if (decksData === null) loadDecks(); else renderStudy(); }}
+  if (tab === "build") renderBuild();
 }}
 
 async function loadDecks() {{
@@ -744,7 +772,7 @@ function renderStudy() {{
   const items = [];
   (lastBoardData.columns || []).forEach(col => (lastBoardData.board[col] || []).forEach(it => items.push(it)));
   const isConcept = it => (it.category || "") === "Concept";
-  const probs = items.filter(it => it.topic && !isConcept(it));
+  const probs = items.filter(it => it.topic && !["Concept", "Build"].includes(it.category || ""));
   const concepts = items.filter(isConcept);
   const probDone = probs.filter(isDone).length;
   const conDone = concepts.filter(isDone).length;
@@ -802,6 +830,75 @@ function studyDecksHtml(shown) {{
   if (!decksData) return html + '<div class="study-empty">Loading decks…</div></div>';
   html += shown.length ? shown.map(deckRow).join("") : '<div class="study-empty">No decks with cards yet.</div>';
   return html + `</div>`;
+}}
+
+// ── Build tab: "Build Your Inference Engine" tracker ──
+const BUILD_FILE_ORDER = ["tokenizer.py", "tensor.py", "autograd.py", "attention.py", "sampler.py", "serve.py", "generate.py"];
+
+function buildRow(it) {{
+  const done = isDone(it);
+  const lesson = it.doc
+    ? `<a class="card-link" href="${{escHtml(it.doc)}}" target="_blank" rel="noopener">Open lesson ↗</a>`
+    : `<span class="lesson-soon">lesson soon</span>`;
+  const chips = `<span class="tag dsa">${{escHtml(it.topic || "")}}</span>` +
+    (it.file ? `<span class="tag file-tag">${{escHtml(it.file)}}</span>` : "") +
+    (it.related ? `<span class="tag reuse">reuses ${{escHtml(it.related)}}</span>` : "");
+  return `<div class="prob-row">` +
+    `<div class="chk ${{done ? "done" : ""}}" title="toggle done" onclick="toggleDone('${{it.id}}',${{done}})">${{done ? "✓" : ""}}</div>` +
+    `<span class="prob-title ${{done ? "done" : ""}}">${{escHtml(it.title || it.id)}}</span>` +
+    `<span class="build-chips">${{chips}}</span>` +
+    `<span class="prob-links">${{lesson}}</span></div>`;
+}}
+
+function fileTreeHtml(comps) {{
+  const byFile = {{}};
+  comps.forEach(c => {{ if (c.file) (byFile[c.file] = byFile[c.file] || []).push(c); }});
+  let rows = `<div class="ft-row ft-head">tiny-gpt/</div>`;
+  rows += `<div class="ft-row"><span class="ft-name">README.md</span><span class="ft-tag">auto-generated</span></div>`;
+  rows += `<div class="ft-row"><span class="ft-name">requirements.txt</span><span class="ft-tag">auto-generated</span></div>`;
+  rows += `<div class="ft-row"><span class="ft-name">model.py</span><span class="ft-tag">weights provided</span></div>`;
+  BUILD_FILE_ORDER.forEach(f => {{
+    const list = byFile[f]; if (!list) return;
+    const d = list.filter(isDone).length, ready = d === list.length;
+    rows += `<div class="ft-row ${{ready ? "ready" : ""}}"><span class="ft-name">${{ready ? "✓ " : ""}}${{escHtml(f)}}</span>` +
+      `<span class="ft-prog">${{ready ? "ready" : d + " / " + list.length}}</span></div>`;
+  }});
+  return `<div class="study-section"><div class="study-h">Your Project <span class="sub">green = your code is ready</span></div>` +
+    `<div class="filetree">` + rows + `</div></div>`;
+}}
+
+function renderBuild() {{
+  const view = document.getElementById("buildView");
+  if (!lastBoardData) {{ view.innerHTML = '<div class="study-empty">Loading…</div>'; return; }}
+  const items = [];
+  (lastBoardData.columns || []).forEach(col => (lastBoardData.board[col] || []).forEach(it => items.push(it)));
+  const comps = items.filter(it => (it.category || "") === "Build")
+    .sort((a, b) => (parseInt(a.order) || 0) - (parseInt(b.order) || 0));
+  const done = comps.filter(isDone).length;
+  const pct = comps.length ? Math.round(done / comps.length * 100) : 0;
+
+  let html = `<div class="study-section build-hero">` +
+    `<h2 class="build-title">Build Your Inference Engine</h2>` +
+    `<p class="build-sub">Every problem you finish is one real component of a tiny GPT. Solve them all and ` +
+    `<code>python generate.py "Once upon a"</code> produces text — your code, your repo. Each is a DSA pattern you already know, reframed as the thing it actually powers in an LLM.</p>` +
+    `<div class="build-prog"><b>${{done}} / ${{comps.length}}</b> components` +
+    `<span class="bar" style="width:220px"><span style="width:${{pct}}%"></span></span></div></div>`;
+
+  const levels = [];
+  comps.forEach(c => {{ if (c.level && !levels.includes(c.level)) levels.push(c.level); }});
+  html += `<div class="study-section">`;
+  levels.forEach(lv => {{
+    const list = comps.filter(c => c.level === lv);
+    const d = list.filter(isDone).length;
+    const p = list.length ? Math.round(d / list.length * 100) : 0;
+    html += `<div class="topic-group"><div class="topic-head" onclick="toggleGroup(this)">` +
+      `<span class="topic-caret">▾</span><span class="topic-name">${{escHtml(lv)}}</span>` +
+      `<span class="topic-prog">${{d}}/${{list.length}}<span class="bar"><span style="width:${{p}}%"></span></span></span>` +
+      `</div><div class="prob-rows">` + list.map(buildRow).join("") + `</div></div>`;
+  }});
+  html += `</div>`;
+  html += fileTreeHtml(comps);
+  view.innerHTML = html;
 }}
 
 let draggedId = null;
