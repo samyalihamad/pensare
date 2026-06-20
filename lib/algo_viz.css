@@ -46,6 +46,23 @@
 .av-node.current .av-pulse { animation:av-pulse 1.4s ease-out infinite; }
 @keyframes av-pulse { 0%{opacity:.55;r:14px} 100%{opacity:0;r:30px} }
 
+/* array view (sliding window / two pointers) */
+.av-arraywrap { background:var(--av-surface); border:1px solid var(--av-border); border-radius:8px;
+  display:flex; justify-content:center; align-items:flex-start; padding:14px 10px; overflow:auto; }
+.av-arraysvg { width:100%; height:auto; display:block; }
+.av-cell rect { fill:var(--av-surface2); stroke:#30363d; stroke-width:1.6; }
+.av-cellval { fill:var(--av-text); font:600 16px/1 "SF Mono",Menlo,Consolas,monospace; }
+.av-idx { fill:#5b6573; font:10px/1 "SF Mono",Menlo,monospace; }
+.av-winfill { fill:rgba(188,140,255,.16); stroke:var(--av-purple); stroke-width:1.5; stroke-dasharray:4 3; }
+.av-markfill { fill:rgba(63,185,80,.20); stroke:var(--av-green); stroke-width:1.6; }
+.av-bracket { fill:none; stroke:var(--av-purple); stroke-width:1.8; }
+.av-note { fill:var(--av-purple); font:600 12px/1 "SF Mono",Menlo,monospace; }
+.av-caret { stroke:none; }
+.av-ptrlabel { font:600 12px/1 "SF Mono",Menlo,monospace; }
+.av-ptrlegend { display:flex; gap:14px; flex-wrap:wrap; padding:2px 4px; }
+.av-leg { display:flex; align-items:center; gap:6px; font:12px/1 "SF Mono",Menlo,monospace; color:var(--av-muted); }
+.av-leg i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
 /* queue */
 .av-queue-wrap { background:var(--av-surface); border:1px solid var(--av-border); border-radius:8px; padding:10px 12px; }
 .av-row-label { font-size:11px; color:var(--av-muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }

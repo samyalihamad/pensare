@@ -39,7 +39,17 @@ a live widget; if the JSON is malformed it safely falls back to a normal code bl
 ```
 ````
 
-## Schema
+## Two layouts: `kind`
+
+Set the top-level `kind` field to pick the layout:
+
+- `"tree"` (default — omit `kind` and you get this): the layered BFS/DFS/traversal tree
+  documented below. Frontier = the `queue` strip.
+- `"array"`: a row of index boxes with moving pointers and an optional window — for
+  sliding-window, two-pointers, binary-search, fast/slow, in-place partition. See
+  [Array layout](#array-layout-kindarray) below.
+
+## Schema (tree)
 
 Top level:
 
@@ -49,6 +59,8 @@ Top level:
 | `steps` | yes | Ordered list of step objects (below) |
 | `start` | recommended | The root/seed node. **If omitted it is inferred** from the first step's `queue[0]` / `visited[0]` / `current` — but always set it explicitly to be safe. |
 | `code` | optional | Array of pseudocode lines. If present, the code-sync pane is shown. |
+| `edges` | optional | Explicit structure as `[[parent, child], ...]`. **Use this for traversals.** It decouples the tree *shape* from *visit order*, so in-/post-order (where a parent is output after its children) still draws the real tree. When present, steps only drive coloring, not structure. |
+| `frontierLabel` | optional | Relabels the frontier strip (default `"Queue (FIFO)"`). Use `"Stack (LIFO)"` for DFS, `"Output order →"` for traversals, etc. |
 
 Each `steps[i]`:
 
@@ -79,6 +91,46 @@ omit it and `code` is the standard BFS pseudocode, the renderer infers: init →
 `queue = deque` line; a step with `discovered` → the `queue.append` (enqueue) line; a
 step with only `filtered` → the filter line; a leaf visit → the `popleft` line; the
 final step → the `while queue:` line.
+
+## Array layout (`kind:"array"`)
+
+For pointer/window algorithms over a linear array. The view is a fixed row of value boxes
+(drawn once); each step redraws an overlay with the window shading, a bracket+note, and the
+named pointer carets.
+
+````markdown
+```algo-viz
+{
+  "kind": "array",
+  "title": "Two Pointers — two-sum on a sorted array",
+  "array": [1, 3, 4, 5, 7, 10, 11, 15],
+  "code": ["L = 0; R = len(arr) - 1", "while L < R:", "..."],
+  "steps": [
+    {"label": "Start", "action": "L at the smallest, R at the largest.",
+     "pointers": {"L": 0, "R": 7}, "note": "target=9", "line": 0},
+    {"label": "Found", "action": "4 + 5 = 9.",
+     "pointers": {"L": 2, "R": 3}, "marked": [2, 3], "note": "4 + 5 = 9 ✓", "line": 3}
+  ]
+}
+```
+````
+
+Top level: `kind:"array"` (required), `title`, `array` (the values, drawn as boxes), `code`
+(optional, but for arrays a step's `line` must be set **explicitly** — there is no inference).
+
+Each `steps[i]`:
+
+| Field | Meaning |
+|-------|---------|
+| `label`, `action` | step name + one-sentence narration (same as tree) |
+| `pointers` | object `{name: index}` — a labelled caret under each cell. Names get stable colors; multiple pointers on one cell stack. Use `L`/`R`, `i`/`j`, `lo`/`mid`/`hi`, `slow`/`fast`. |
+| `window` | optional `[a, b]` inclusive — shades cells a..b and draws a bracket. Use `[0, -1]` (or any `b < a`) for an empty window. |
+| `note` | optional label shown on the window bracket (or centered if no window) — e.g. a running sum / current window string. |
+| `marked` | optional `[idx, ...]` — individually highlighted result cells (green), e.g. the found pair. |
+| `line` | optional 0-based index into `code` to highlight. Required for highlighting in array mode (no inference). |
+
+Indices are clamped to the array bounds, so an off-by-one in the data degrades gracefully
+rather than throwing.
 
 ## Authoring correct step data — simulate, don't hand-write
 
@@ -154,6 +206,6 @@ Reference demos live in `~/Downloads/pensare-viz-demos/` (4 style explorations +
   lists, and `algo-viz` — **not** markdown tables. Use lists/headings in docs.
 - Keep node identifiers short or hierarchical; the widget displays a URL by stripping
   the host (`news.yahoo.com/finance` → `/finance`) with the full value on hover.
-- Today's layout is a **top-down tree** tuned for BFS/DFS/graphs. Array/pointer
-  (sliding-window, two-pointers) and linear-structure (deque) layout modes are a natural
-  next extension — add a `kind` field to the data and a matching layout in `algo_viz.js`.
+- Two layouts ship today: the top-down **tree** (`kind:"tree"`, default) and the **array**
+  row (`kind:"array"`, see above). A linear-structure (deque/linked-list) mode would be the
+  next extension — add a `kind` value and a matching layout in `algo_viz.js`.
