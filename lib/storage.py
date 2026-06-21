@@ -69,12 +69,14 @@ class LocalBackend:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content)
 
-    def ls(self, prefix: str = "", glob: str | None = None) -> list[str]:
+    def ls(
+        self, prefix: str = "", glob: str | None = None, recursive: bool = False
+    ) -> list[str]:
         base = self._path(prefix) if prefix else self.root
         if not base.exists():
             return []
         out: list[str] = []
-        for f in sorted(base.rglob("*") if glob else base.iterdir()):
+        for f in sorted(base.rglob("*") if recursive else base.iterdir()):
             if f.is_dir():
                 continue
             if glob and not fnmatch.fnmatch(f.name, glob):
@@ -137,14 +139,24 @@ class S3Backend:
             else "text/plain; charset=utf-8",
         )
 
-    def ls(self, prefix: str = "", glob: str | None = None) -> list[str]:
+    def ls(
+        self, prefix: str = "", glob: str | None = None, recursive: bool = False
+    ) -> list[str]:
         full_prefix = self._full(prefix) if prefix else self.prefix
+        # Normalise to a directory-style prefix so child detection below measures
+        # depth relative to the directory, not a partial filename.
+        if full_prefix and not full_prefix.endswith("/"):
+            full_prefix += "/"
         paginator = self._s3.get_paginator("list_objects_v2")
         out: list[str] = []
         for page in paginator.paginate(Bucket=self.bucket, Prefix=full_prefix):
             for obj in page.get("Contents", []):
                 rel = obj["Key"][len(self.prefix):]
                 if not rel or rel.endswith("/"):
+                    continue
+                # Without recursion, only return immediate children of the listing
+                # prefix (S3 listing is inherently recursive, so filter manually).
+                if not recursive and "/" in obj["Key"][len(full_prefix):]:
                     continue
                 if glob and not fnmatch.fnmatch(rel.rsplit("/", 1)[-1], glob):
                     continue
@@ -234,6 +246,11 @@ def main(argv: list[str] | None = None) -> int:
     p_ls = sub.add_parser("ls", help="list keys under a prefix")
     p_ls.add_argument("--prefix", default="")
     p_ls.add_argument("--glob")
+    p_ls.add_argument(
+        "--recursive",
+        action="store_true",
+        help="descend into subdirectories (default: immediate children only)",
+    )
 
     p_exists = sub.add_parser("exists", help="exit 0 if key exists else 1")
     p_exists.add_argument("--key", required=True)
@@ -244,6 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     p_dump = sub.add_parser("dump", help="concatenate many files in one process")
     p_dump.add_argument("--prefix", default="")
     p_dump.add_argument("--glob")
+    p_dump.add_argument(
+        "--recursive",
+        action="store_true",
+        help="descend into subdirectories (default: immediate children only)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -268,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "ls":
-        for k in store.ls(args.prefix, args.glob):
+        for k in store.ls(args.prefix, args.glob, args.recursive):
             print(k)
         return 0
 
@@ -280,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "dump":
-        for k in store.ls(args.prefix, args.glob):
+        for k in store.ls(args.prefix, args.glob, args.recursive):
             sys.stdout.write(DUMP_DELIM.format(key=k))
             try:
                 sys.stdout.write(store.read(k))

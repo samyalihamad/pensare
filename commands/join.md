@@ -5,7 +5,7 @@ description: Join an existing pensare project from shared team config (IC onboar
 ---
 
 > **Storage choice on join** (see the **Storage backend** rule): after reading the shared config,
-> offer the same private-storage options as `/pensare:setup` Step 4 (Local / git / **AWS S3**). For S3, run `${CLAUDE_PLUGIN_ROOT}/deploy/provision-project.sh {project}` and seed journal files via the storage helper.
+> offer the same private-storage options as `/pensare:setup` Step 4 (Local / git / **AWS S3**). For S3, run `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/deploy/provision-project.sh {project}` and seed journal files via the storage helper.
 
 ## Directory Structure
 

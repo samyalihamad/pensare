@@ -94,7 +94,7 @@ If a path is given:
      ```
 
 #### Step 3: Template (Optional)
-Scan `${CLAUDE_PLUGIN_ROOT}/templates/` for `*.json` files. Parse each to get `display_name` and `description`.
+Scan `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/templates/` for `*.json` files. Parse each to get `display_name` and `description`.
 
 Ask: "Start from a template?
 0. **Blank** — Configure everything manually (default)
@@ -148,10 +148,10 @@ If Private git repo chosen:
 5. The symlink `~/.claude/contexts/{project}` will point to `{git_path}` so all code paths work unchanged.
 
 If AWS S3 chosen:
-1. Check shared infra exists: `[ -f "${CLAUDE_PLUGIN_ROOT}/deploy/.pensare-infra.json" ]`.
-   - If missing, tell the user: "S3 storage needs a one-time AWS setup. Run `${CLAUDE_PLUGIN_ROOT}/deploy/bootstrap.sh` (it checks your AWS CLI and creates the bucket + Lambda), then re-run setup." Then fall back to Local for now, or stop if the user prefers to set up AWS first.
-2. Run `${CLAUDE_PLUGIN_ROOT}/deploy/provision-project.sh {project}` — this generates the board secret, writes the local **stub** `sources.json` with `storage: "s3"` and the `s3` block, uploads it to S3, and seeds `journal/manifest.json` in S3.
-3. From here on this project is S3-backed: per the **Storage backend** rule, all project file reads/writes in the remaining steps go through `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} ...` instead of the Read/Write tools. Do **not** create local journal/kb directories or a symlink for S3 projects.
+1. Check shared infra exists: `[ -f "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/deploy/.pensare-infra.json" ]`.
+   - If missing, tell the user: "S3 storage needs a one-time AWS setup. Run `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/deploy/bootstrap.sh` (it checks your AWS CLI and creates the bucket + Lambda), then re-run setup." Then fall back to Local for now, or stop if the user prefers to set up AWS first.
+2. Run `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/deploy/provision-project.sh {project}` — this generates the board secret, writes the local **stub** `sources.json` with `storage: "s3"` and the `s3` block, uploads it to S3, and seeds `journal/manifest.json` in S3.
+3. From here on this project is S3-backed: per the **Storage backend** rule, all project file reads/writes in the remaining steps go through `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} ...` instead of the Read/Write tools. Do **not** create local journal/kb directories or a symlink for S3 projects.
 
 #### Step 5: Context Files
 Ask: "What context files should this project have? Each file covers a topic area.
@@ -190,7 +190,7 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
 
 #### Step 7: Create Project
 
-> **If `storage` is `s3`:** the project directory, journal/manifest seed, and stub `sources.json` were already created by `provision-project.sh` in Step 4. Skip the `mkdir`/symlink in items 1–3 below. For every file written in items 4–5 (templates, `Overview.md`, the authoritative `sources.json`), use `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write --key <relpath> --stdin` instead of the Write tool (see the **Storage backend** rule). There are no directories to create on S3 — keys like `kb/foo.md` just work.
+> **If `storage` is `s3`:** the project directory, journal/manifest seed, and stub `sources.json` were already created by `provision-project.sh` in Step 4. Skip the `mkdir`/symlink in items 1–3 below. For every file written in items 4–5 (templates, `Overview.md`, the authoritative `sources.json`), use `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} write --key <relpath> --stdin` instead of the Write tool (see the **Storage backend** rule). There are no directories to create on S3 — keys like `kb/foo.md` just work.
 
 1. Create the private storage directory:
    - **Local** (no `git_path`): `mkdir -p ~/.claude/contexts/{project}/`
@@ -252,7 +252,7 @@ For sections: ask "What sections should `{filename}` have? (comma-separated, def
       - **Local/git:** `mkdir -p ~/.claude/contexts/{project}/kanban/items/` then write `kanban/config.json` and `kanban/INDEX.md` with the Write tool.
       - **S3:** write the same files via the storage helper (no mkdir needed):
         ```bash
-        printf '%s' '{...config json...}' | python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write --key kanban/config.json --stdin
+        printf '%s' '{...config json...}' | python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} write --key kanban/config.json --stdin
         ```
         and likewise for `kanban/INDEX.md`.
 

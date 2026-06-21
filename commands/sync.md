@@ -5,7 +5,7 @@ description: Sync project sources — fetch from GitHub, Slack, Notion, URLs and
 ---
 
 > **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
-> write context files and the authoritative `sources.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} write ...`, and skip the git auto-commit step.
+> write context files and the authoritative `sources.json` via `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} write ...`, and skip the git auto-commit step.
 
 ## Directory Structure
 

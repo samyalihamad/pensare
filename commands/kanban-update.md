@@ -14,12 +14,12 @@ Status slugs: `backlog`, `in-progress`, `blocked`, `done`
 
 ## S3-backed projects
 
-If `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} backend` prints
+If `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} backend` prints
 `s3`, do **not** hand-edit files. Resolve the item and the changes interactively as
 below (read config/items with `storage.py read`/`ls`), then apply everything in one
 call — which also regenerates `INDEX.md` and writes to S3:
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/lib/kanban_core.py --project {project} update \
+python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/kanban_core.py --project {project} update \
   --id {ID} [--status {slug}] [--priority {p}] [--title "{t}"] [--note "{text}"]
 ```
 Then skip Steps 3–4 (the helper does the write + index). The local/git flow below is unchanged.

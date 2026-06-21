@@ -5,7 +5,7 @@ description: Preview and push mature context and journal content to source-contr
 ---
 
 > **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
-> read source content (journal/kb/context files) via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} read|dump ...`. The publish target (the shared git plan file) is written with the normal tools as usual.
+> read source content (journal/kb/context files) via `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} read|dump ...`. The publish target (the shared git plan file) is written with the normal tools as usual.
 
 ## Directory Structure
 

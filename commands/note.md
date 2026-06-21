@@ -7,7 +7,7 @@ description: Add a journal entry — Claude reviews the session and composes a s
 # Add a Journal Entry
 
 > **S3-backed projects** (see the **Storage backend** rule): if `sources.json` has `storage: "s3"`,
-> read/write `journal/{week}.md` and `journal/manifest.json` via `python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} read|write ...` (read-modify-write), and **skip** the git auto-commit step — S3 writes are already durable.
+> read/write `journal/{week}.md` and `journal/manifest.json` via `python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} read|write ...` (read-modify-write), and **skip** the git auto-commit step — S3 writes are already durable.
 
 The argument is an INSTRUCTION (e.g., "record what we fixed"), not the note text itself. Claude reviews the entire conversation, follows the instruction, and composes the entry.
 

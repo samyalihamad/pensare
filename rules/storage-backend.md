@@ -16,8 +16,13 @@ project's `~/.claude/contexts/{project}/sources.json`:
 All project-relative file I/O goes through:
 
 ```
-python3 ${CLAUDE_PLUGIN_ROOT}/lib/storage.py --project {project} <cmd> ...
+python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/storage.py --project {project} <cmd> ...
 ```
+
+`${CLAUDE_PLUGIN_ROOT}` is only set inside the plugin's own hooks, **not** in the
+Bash tool — so the `:-$HOME/.claude/plugins/pensare` fallback (the canonical install
+location, real dir or dev symlink) is what makes these commands run. Keep it on every
+invocation; the var does not persist across Bash calls.
 
 | Need | Command |
 |------|---------|
@@ -39,9 +44,9 @@ For kanban add/update on an `s3` project, do **not** hand-write item files — c
 the shared core so the model and the online board use identical logic:
 
 ```
-python3 ${CLAUDE_PLUGIN_ROOT}/lib/kanban_core.py --project {p} add \
+python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/kanban_core.py --project {p} add \
   --title "..." [--category C] [--priority high|medium|low] [--description "..."]
-python3 ${CLAUDE_PLUGIN_ROOT}/lib/kanban_core.py --project {p} update \
+python3 ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/pensare}/lib/kanban_core.py --project {p} update \
   --id KB-001 [--status s] [--priority p] [--title t] [--note "..."]
 ```
 
