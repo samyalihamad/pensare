@@ -31,7 +31,7 @@ except ImportError:  # pragma: no cover - direct-run / Lambda flat layout
 
 
 DEFAULT_CONFIG = {
-    "columns": ["Backlog", "In Progress", "Blocked", "Done"],
+    "columns": ["Backlog", "In Progress", "Done"],
     "categories": [],
     "id_prefix": "KB",
     "next_id": 1,
@@ -153,6 +153,10 @@ def update_item(store, item_key: str, updates: dict) -> None:
                 fm_updates.pop(key)
                 continue
         new_fm.append(line)
+    # Append any keys that weren't already present (e.g. first time an item gets
+    # `companies`), so the UI editor can set fields the file never had.
+    for key, val in fm_updates.items():
+        new_fm.append(f"{key}: {val}")
     new_fm.append(lines[end])
 
     body_lines = lines[end + 1:]
@@ -334,6 +338,60 @@ header{{
 header h1{{font-size:15px;font-weight:600;white-space:nowrap}}
 header .project{{color:#58a6ff}}
 .item-count{{color:#7d8590;font-size:13px;margin-left:auto;white-space:nowrap}}
+/* filter bar */
+.filterbar{{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:9px 20px;border-bottom:1px solid #21262d;background:#11151b;flex-shrink:0
+}}
+.filterbar input,.filterbar select{{
+  font:inherit;font-size:12px;background:#0d1117;color:#e6edf3;
+  border:1px solid #21262d;border-radius:7px;padding:5px 9px;outline:none
+}}
+.filterbar input:focus,.filterbar select:focus{{border-color:#1f6feb}}
+.filterbar input.search{{min-width:180px}}
+.filter-clear{{
+  font:inherit;font-size:12px;cursor:pointer;background:none;border:1px solid #21262d;
+  color:#7d8590;padding:5px 11px;border-radius:7px
+}}
+.filter-clear:hover{{color:#e6edf3;border-color:#30363d}}
+.filter-count{{color:#6e7681;font-size:12px;margin-left:auto}}
+/* editor modal */
+.ed-overlay{{
+  display:none;position:fixed;inset:0;background:rgba(1,4,9,.72);z-index:50;
+  align-items:flex-start;justify-content:center;padding:48px 16px;overflow:auto
+}}
+.ed-overlay.open{{display:flex}}
+.ed-modal{{
+  width:100%;max-width:520px;background:#161b22;border:1px solid #30363d;
+  border-radius:12px;padding:20px 22px;box-shadow:0 16px 48px rgba(1,4,9,.6)
+}}
+.ed-head{{display:flex;align-items:center;gap:10px;margin-bottom:16px}}
+.ed-head .ed-id{{font-size:12px;color:#6e7681;font-variant-numeric:tabular-nums}}
+.ed-head .ed-h{{font-size:15px;font-weight:600}}
+.ed-close{{margin-left:auto;background:none;border:none;color:#7d8590;font-size:22px;cursor:pointer;line-height:1}}
+.ed-close:hover{{color:#e6edf3}}
+.ed-field{{margin-bottom:13px}}
+.ed-field label{{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#7d8590;margin-bottom:5px}}
+.ed-field input,.ed-field select{{
+  width:100%;font:inherit;font-size:13px;background:#0d1117;color:#e6edf3;
+  border:1px solid #21262d;border-radius:7px;padding:7px 10px;outline:none
+}}
+.ed-field input:focus,.ed-field select:focus{{border-color:#1f6feb}}
+.ed-row{{display:flex;gap:12px}}
+.ed-row .ed-field{{flex:1}}
+.chips{{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  background:#0d1117;border:1px solid #21262d;border-radius:7px;padding:6px 8px}}
+.chip{{display:inline-flex;align-items:center;gap:5px;background:#2b1d3d;color:#bc8cff;
+  border:1px solid #3c2a52;border-radius:10px;font-size:11px;padding:2px 4px 2px 8px}}
+.chip button{{background:none;border:none;color:#bc8cff;cursor:pointer;font-size:13px;line-height:1;padding:0 2px}}
+.chip button:hover{{color:#fff}}
+.chips input{{flex:1;min-width:90px;border:none;background:none;color:#e6edf3;font:inherit;font-size:12px;outline:none;padding:2px}}
+.ed-actions{{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}}
+.ed-btn{{font:inherit;font-size:13px;cursor:pointer;border-radius:7px;padding:7px 16px;border:1px solid #21262d;background:none;color:#c9d1d9}}
+.ed-btn.primary{{background:#238636;border-color:#2ea043;color:#fff;font-weight:500}}
+.ed-btn.primary:hover{{background:#2ea043}}
+.ed-btn:hover{{border-color:#30363d}}
+.card{{cursor:pointer}}
 .pensare-logo{{
   font-size:11px;letter-spacing:.6px;text-transform:uppercase;
   color:#484f58;padding:2px 8px;border:1px solid #21262d;border-radius:10px
@@ -346,7 +404,7 @@ header .project{{color:#58a6ff}}
 .board::-webkit-scrollbar-track{{background:#0d1117}}
 .board::-webkit-scrollbar-thumb{{background:#21262d;border-radius:3px}}
 .column{{
-  flex:0 0 270px;background:#161b22;border:1px solid #21262d;
+  flex:1 1 260px;min-width:240px;background:#161b22;border:1px solid #21262d;
   border-radius:8px;display:flex;flex-direction:column;
   max-height:calc(100vh - 100px)
 }}
@@ -361,7 +419,6 @@ header .project{{color:#58a6ff}}
 .col-dot{{width:8px;height:8px;border-radius:50%;flex-shrink:0}}
 .d-backlog{{background:#6e7681}}
 .d-in-progress{{background:#388bfd}}
-.d-blocked{{background:#f85149}}
 .d-done{{background:#3fb950}}
 .d-default{{background:#bc8cff}}
 .col-count{{
@@ -400,6 +457,7 @@ header .project{{color:#58a6ff}}
 .p-medium{{background:#2d2208;color:#e3b341;border:1px solid #433410}}
 .p-low{{background:#1c2128;color:#6e7681;border:1px solid #21262d}}
 .category{{background:#1c2d3d;color:#58a6ff;border:1px solid #1f3a52}}
+.company{{background:#2b1d3d;color:#bc8cff;border:1px solid #3c2a52}}
 .card-links{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
 .card-link{{
   font-size:11px;padding:2px 8px;border-radius:6px;text-decoration:none;
@@ -475,6 +533,49 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 .fc-modal .av{{position:static;left:auto;transform:none;width:auto;margin:14px 0 4px}}
 .fc-modal .av-body{{grid-template-columns:1fr}}
 .fc-viz-loading{{color:#6e7681;font-style:italic;font-size:12px;margin:10px 0}}
+.fc-code{{
+  width:100%;min-height:96px;resize:vertical;background:#0d1117;color:#e6edf3;
+  border:1px solid #21262d;border-radius:8px;padding:11px 12px;outline:none;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;line-height:1.55;
+  tab-size:4;white-space:pre
+}}
+.fc-code:focus{{border-color:#1f6feb}}
+.fc-hint{{color:#6e7681;font-size:11.5px;margin-top:6px}}
+.fc-sub{{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#7d8590;margin:14px 0 5px}}
+.fc-yourcode{{background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:10px 12px;overflow:auto}}
+.fc-yourcode code{{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;line-height:1.55;color:#e6edf3;white-space:pre}}
+.fc-verdict{{font-size:13px;font-weight:600;padding:7px 11px;border-radius:8px;display:inline-block}}
+.fc-verdict.good{{background:#15281c;color:#3fb950;border:1px solid #1f4429}}
+.fc-verdict.bad{{background:#3d1a1c;color:#f85149;border:1px solid #521b1e}}
+/* full-page typed-code quiz */
+.qz-launch{{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}}
+.qz-launch-note{{font-size:12px;color:#7d8590}}
+.quiz-view{{display:none;position:fixed;inset:0;z-index:60;background:#0d1117;overflow:auto;flex-direction:column}}
+.quiz-view.open{{display:flex}}
+.quiz-top{{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid #21262d;background:#161b22;position:sticky;top:0;z-index:1}}
+.quiz-top h2{{font-size:15px;font-weight:600}}
+.quiz-close{{margin-left:auto;background:none;border:1px solid #21262d;color:#7d8590;border-radius:7px;padding:6px 12px;cursor:pointer;font:inherit;font-size:12px}}
+.quiz-close:hover{{color:#e6edf3;border-color:#30363d}}
+.quiz-wrap{{max-width:720px;width:100%;margin:0 auto;padding:24px 22px 64px}}
+.quiz-lead{{color:#7d8590;font-size:13px;line-height:1.6;margin-bottom:18px}}
+.qz-topics{{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}}
+.qz-topic{{display:flex;align-items:center;gap:11px;padding:10px 13px;border:1px solid #21262d;border-radius:9px;background:#11151b;cursor:pointer}}
+.qz-topic:hover{{border-color:#30363d}}
+.qz-topic input{{width:17px;height:17px;accent-color:#bc8cff;cursor:pointer}}
+.qz-topic .qz-name{{font-size:13.5px;color:#e6edf3}}
+.qz-topic .qz-cnt{{margin-left:auto;font-size:12px;color:#7d8590;font-variant-numeric:tabular-nums}}
+.qz-setup-actions{{display:flex;align-items:center;gap:10px;flex-wrap:wrap}}
+.qz-selectall{{font:inherit;font-size:12px;cursor:pointer;background:none;border:1px solid #21262d;color:#7d8590;border-radius:7px;padding:7px 13px}}
+.qz-selectall:hover{{color:#e6edf3;border-color:#30363d}}
+.qz-start{{font:inherit;font-size:13px;font-weight:500;cursor:pointer;background:#238636;border:1px solid #2ea043;color:#fff;border-radius:8px;padding:9px 18px;margin-left:auto}}
+.qz-start:hover{{background:#2ea043}}
+.qz-start:disabled{{opacity:.4;cursor:default}}
+.qz-progress{{height:4px;background:#21262d;border-radius:3px;overflow:hidden;margin-bottom:9px}}
+.qz-progress span{{display:block;height:100%;background:#bc8cff;transition:width .2s}}
+.qz-count{{font-size:12px;color:#7d8590;margin-bottom:12px;font-variant-numeric:tabular-nums}}
+.qz-deck-chip{{display:inline-block;font-size:11px;color:#bc8cff;background:#2b1d3d;border:1px solid #3c2a52;border-radius:10px;padding:1px 9px;margin-bottom:12px}}
+.qz-actions{{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}}
+.qz-result{{text-align:center;padding:44px 8px}}
 .empty{{
   color:#484f58;font-size:12px;text-align:center;
   padding:22px 10px;font-style:italic
@@ -560,12 +661,57 @@ button.card-link{{font-family:inherit;cursor:pointer}}
   </div>
   <span class="item-count" id="count"></span>
 </header>
+<div class="filterbar" id="filterbar">
+  <input class="search" id="fltText" type="text" placeholder="Search title / id…" oninput="setFilter('text', this.value)">
+  <select id="fltCompany" onchange="setFilter('company', this.value)"><option value="">All companies</option></select>
+  <select id="fltCategory" onchange="setFilter('category', this.value)"><option value="">All categories</option></select>
+  <select id="fltPriority" onchange="setFilter('priority', this.value)">
+    <option value="">Any priority</option><option value="high">high</option><option value="medium">medium</option><option value="low">low</option>
+  </select>
+  <select id="fltStatus" onchange="setFilter('status', this.value)"><option value="">Any status</option></select>
+  <button class="filter-clear" onclick="clearFilters()">Clear</button>
+  <span class="filter-count" id="fltCount"></span>
+</div>
 <div class="board" id="board">
   <div style="color:#484f58;padding:20px;font-size:13px">Loading&hellip;</div>
 </div>
 <div class="study" id="studyView" style="display:none"></div>
 <div class="study" id="buildView" style="display:none"></div>
 <div class="statusbar" id="statusbar">Connecting&hellip;</div>
+
+<div class="quiz-view" id="quizView"></div>
+
+<div class="ed-overlay" id="edOverlay" onclick="if(event.target===this)edClose()">
+  <div class="ed-modal" role="dialog" aria-modal="true">
+    <div class="ed-head">
+      <span class="ed-id" id="edId"></span>
+      <span class="ed-h">Edit item</span>
+      <button class="ed-close" onclick="edClose()" aria-label="Close">&times;</button>
+    </div>
+    <div class="ed-field"><label>Title</label><input id="edTitle" type="text"></div>
+    <div class="ed-row">
+      <div class="ed-field"><label>Status</label><select id="edStatus"></select></div>
+      <div class="ed-field"><label>Priority</label>
+        <select id="edPriority"><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select>
+      </div>
+    </div>
+    <div class="ed-field"><label>Category</label><select id="edCategory"></select></div>
+    <div class="ed-field"><label>Companies / tags</label>
+      <div class="chips" id="edChips" onclick="document.getElementById('edChipInput').focus()">
+        <input id="edChipInput" type="text" placeholder="add tag + Enter"
+          onkeydown="edChipKey(event)">
+      </div>
+    </div>
+    <div class="ed-row">
+      <div class="ed-field"><label>LeetCode URL</label><input id="edLeetcode" type="text"></div>
+    </div>
+    <div class="ed-field"><label>Explanation doc URL</label><input id="edDoc" type="text"></div>
+    <div class="ed-actions">
+      <button class="ed-btn" onclick="edClose()">Cancel</button>
+      <button class="ed-btn primary" onclick="edSave()">Save</button>
+    </div>
+  </div>
+</div>
 
 <div class="fc-overlay" id="fcOverlay" onclick="if(event.target===this)fcClose()">
   <div class="fc-modal" role="dialog" aria-modal="true">
@@ -574,6 +720,7 @@ button.card-link{{font-family:inherit;cursor:pointer}}
       <div class="fc-modes">
         <button class="fc-mode on" id="fcModeRef" onclick="fcSetMode('reference')">Reference</button>
         <button class="fc-mode" id="fcModeQuiz" onclick="fcSetMode('quiz')">Quiz</button>
+        <button class="fc-mode" id="fcModeType" onclick="fcSetMode('type')">Type</button>
       </div>
       <button class="fc-close" onclick="fcClose()" aria-label="Close">&times;</button>
     </div>
@@ -583,7 +730,7 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 </div>
 
 <script>
-const POLL_MS = 30000;
+const POLL_MS = 15000;
 const PROJECT = "{project}";
 const SECRET = "{secret}";
 let pollTimer = null;
@@ -604,7 +751,6 @@ const PRIORITY_CLASS = {{high:"p-high",medium:"p-medium",low:"p-low"}};
 const STATUS_DOT = {{
   "backlog":"d-backlog",
   "in-progress":"d-in-progress",
-  "blocked":"d-blocked",
   "done":"d-done"
 }};
 
@@ -640,15 +786,29 @@ function cardLinks(item) {{
   return links.length ? `<div class="card-links">${{links.join("")}}</div>` : "";
 }}
 
+function parseCompanies(raw) {{
+  // Frontmatter is parsed naively, so `companies: [A, B]` arrives as a string.
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
+  return String(raw).replace(/^\[|\]$/g, "").split(",").map(s => s.trim()).filter(Boolean);
+}}
+
+function companyTags(item) {{
+  return parseCompanies(item.companies)
+    .map(c => `<span class="tag company">${{escHtml(c)}}</span>`).join("");
+}}
+
 function renderCard(item) {{
   return `<div class="card" draggable="true"
     ondragstart="dragStart(event,'${{item.id}}')"
-    ondragend="dragEnd(event)">
+    ondragend="dragEnd(event)"
+    onclick="openEditor('${{item.id}}')">
     <div class="card-id">${{item.id || "—"}}${{item.rank ? ` · #${{escHtml(item.rank)}}` : ""}}</div>
     <div class="card-title">${{escHtml(item.title || "Untitled")}}</div>
     <div class="card-meta">
       ${{badge(item.priority)}}
       ${{categoryTag(item.category)}}
+      ${{companyTags(item)}}
     </div>
     ${{cardLinks(item)}}
   </div>`;
@@ -662,19 +822,71 @@ function escHtml(s) {{
     .replace(/"/g,"&quot;");
 }}
 
+// Concept / Build items have their own tabs, not the kanban.
+const offBoard = it => ["Concept", "Build"].includes(it.category || "");
+
+let filters = {{text:"", company:"", category:"", priority:"", status:""}};
+
+function itemMatches(it) {{
+  if (filters.company && !parseCompanies(it.companies).includes(filters.company)) return false;
+  if (filters.category && (it.category || "") !== filters.category) return false;
+  if (filters.priority && (it.priority || "") !== filters.priority) return false;
+  if (filters.status && slugify(it.status || "") !== filters.status) return false;
+  if (filters.text) {{
+    const hay = `${{it.id || ""}} ${{it.title || ""}}`.toLowerCase();
+    if (!hay.includes(filters.text.toLowerCase())) return false;
+  }}
+  return true;
+}}
+function slugify(s) {{ return String(s).toLowerCase().replace(/\\s+/g, "-"); }}
+
+function setFilter(key, val) {{ filters[key] = val; if (lastBoardData) renderBoard(lastBoardData); }}
+function clearFilters() {{
+  filters = {{text:"", company:"", category:"", priority:"", status:""}};
+  ["fltText","fltCompany","fltCategory","fltPriority","fltStatus"].forEach(id => {{
+    const el = document.getElementById(id); if (el) el.value = "";
+  }});
+  if (lastBoardData) renderBoard(lastBoardData);
+}}
+
+function buildFilterOptions(data) {{
+  const all = [];
+  data.columns.forEach(col => (data.board[col] || []).forEach(it => {{ if (!offBoard(it)) all.push(it); }}));
+  const companies = [...new Set(all.flatMap(it => parseCompanies(it.companies)))].sort();
+  const cats = [...new Set(all.map(it => it.category).filter(Boolean))].sort();
+  const fill = (id, vals, keep) => {{
+    const el = document.getElementById(id); if (!el) return;
+    const cur = el.value;
+    el.innerHTML = `<option value="">${{keep}}</option>` +
+      vals.map(v => `<option value="${{escHtml(v)}}">${{escHtml(v)}}</option>`).join("");
+    el.value = cur;
+  }};
+  fill("fltCompany", companies, "All companies");
+  fill("fltCategory", cats, "All categories");
+  const st = document.getElementById("fltStatus");
+  if (st) {{
+    const cur = st.value;
+    st.innerHTML = `<option value="">Any status</option>` +
+      data.columns.map(c => `<option value="${{escHtml(slugify(c))}}">${{escHtml(c)}}</option>`).join("");
+    st.value = cur;
+  }}
+}}
+
 function renderBoard(data) {{
   lastBoardData = data;
   const board = document.getElementById("board");
   const count = document.getElementById("count");
-  // Concept / Build items have their own tabs, not the kanban.
-  const offBoard = it => ["Concept", "Build"].includes(it.category || "");
+  buildFilterOptions(data);
   const shownTotal = data.columns.reduce((a, col) => a + (data.board[col] || []).filter(it => !offBoard(it)).length, 0);
   count.textContent = `${{shownTotal}} item${{shownTotal === 1 ? "" : "s"}}`;
   if (currentTab === "study") renderStudy();
   else if (currentTab === "build") renderBuild();
 
+  let shownAfter = 0;
+  const anyFilter = filters.text || filters.company || filters.category || filters.priority || filters.status;
   board.innerHTML = data.columns.map(col => {{
-    const items = (data.board[col] || []).filter(it => !offBoard(it));
+    const items = (data.board[col] || []).filter(it => !offBoard(it) && itemMatches(it));
+    shownAfter += items.length;
     const cards = items.length
       ? items.map(renderCard).join("")
       : `<div class="empty">No items</div>`;
@@ -690,6 +902,8 @@ function renderBoard(data) {{
       <div class="items">${{cards}}</div>
     </div>`;
   }}).join("");
+  const fc = document.getElementById("fltCount");
+  if (fc) fc.textContent = anyFilter ? `${{shownAfter}} of ${{shownTotal}} shown` : "";
 }}
 
 function setStatus(msg, isError) {{
@@ -698,6 +912,98 @@ function setStatus(msg, isError) {{
   el.className = "statusbar" + (isError ? " error" : "");
 }}
 
+// ── Inline card editor ──
+function findItem(id) {{
+  if (!lastBoardData) return null;
+  for (const col of lastBoardData.columns) {{
+    const item = (lastBoardData.board[col] || []).find(x => x.id === id);
+    if (item) return {{item, col}};
+  }}
+  return null;
+}}
+
+let edItemId = null, edCompanies = [];
+
+function openEditor(id) {{
+  const found = findItem(id);
+  if (!found) return;
+  const it = found.item;
+  edItemId = id;
+  document.getElementById("edId").textContent = id;
+  document.getElementById("edTitle").value = it.title || "";
+  document.getElementById("edPriority").value = it.priority || "medium";
+  document.getElementById("edLeetcode").value = it.leetcode || "";
+  document.getElementById("edDoc").value = it.doc || "";
+  const stSel = document.getElementById("edStatus");
+  stSel.innerHTML = lastBoardData.columns
+    .map(c => `<option value="${{escHtml(slugify(c))}}">${{escHtml(c)}}</option>`).join("");
+  stSel.value = slugify(it.status || (lastBoardData.columns[0] || ""));
+  const cats = [...new Set(lastBoardData.columns
+    .flatMap(c => (lastBoardData.board[c] || []).map(x => x.category).filter(Boolean)))].sort();
+  if (it.category && !cats.includes(it.category)) cats.push(it.category);
+  const catSel = document.getElementById("edCategory");
+  catSel.innerHTML = `<option value="">(none)</option>` +
+    cats.map(c => `<option value="${{escHtml(c)}}">${{escHtml(c)}}</option>`).join("");
+  catSel.value = it.category || "";
+  edCompanies = parseCompanies(it.companies);
+  renderChips();
+  document.getElementById("edChipInput").value = "";
+  document.getElementById("edOverlay").classList.add("open");
+}}
+
+function renderChips() {{
+  const box = document.getElementById("edChips");
+  [...box.querySelectorAll(".chip")].forEach(n => n.remove());
+  const input = document.getElementById("edChipInput");
+  edCompanies.forEach((c, i) => {{
+    const span = document.createElement("span");
+    span.className = "chip";
+    span.innerHTML = `${{escHtml(c)}} <button onclick="edRemoveChip(${{i}})" aria-label="remove">&times;</button>`;
+    box.insertBefore(span, input);
+  }});
+}}
+function edChipKey(e) {{
+  if (e.key === "Enter" || e.key === ",") {{
+    e.preventDefault();
+    const v = e.target.value.trim().replace(/,+$/, "").trim();
+    if (v && !edCompanies.includes(v)) {{ edCompanies.push(v); renderChips(); }}
+    e.target.value = "";
+  }} else if (e.key === "Backspace" && !e.target.value && edCompanies.length) {{
+    edCompanies.pop(); renderChips();
+  }}
+}}
+function edRemoveChip(i) {{ edCompanies.splice(i, 1); renderChips(); }}
+function edClose() {{ document.getElementById("edOverlay").classList.remove("open"); edItemId = null; }}
+
+function edSave() {{
+  if (!edItemId) return;
+  const found = findItem(edItemId);
+  if (!found) {{ edClose(); return; }}
+  const it = found.item;
+  const id = edItemId;
+  const updates = {{}};
+  const title = document.getElementById("edTitle").value.trim();
+  const priority = document.getElementById("edPriority").value;
+  const category = document.getElementById("edCategory").value;
+  const status = document.getElementById("edStatus").value;
+  const leetcode = document.getElementById("edLeetcode").value.trim();
+  const doc = document.getElementById("edDoc").value.trim();
+  if (title !== (it.title || "")) updates.title = `"${{title}}"`;   // quote: titles may contain ':'
+  if (priority !== (it.priority || "")) updates.priority = priority;
+  if (category !== (it.category || "")) updates.category = category;
+  if (status !== slugify(it.status || "")) updates.status = status;
+  if (leetcode !== (it.leetcode || "")) updates.leetcode = leetcode;
+  if (doc !== (it.doc || "")) updates.doc = doc;
+  if (JSON.stringify(edCompanies) !== JSON.stringify(parseCompanies(it.companies)))
+    updates.companies = `[${{edCompanies.join(", ")}}]`;
+  edClose();
+  if (Object.keys(updates).length) patch(id, updates);
+}}
+
+document.addEventListener("keydown", (e) => {{
+  if (e.key === "Escape" && document.getElementById("edOverlay").classList.contains("open")) edClose();
+}});
+
 // ── Study view: problems grouped by topic + flashcard decks ──
 function showTab(tab) {{
   currentTab = tab;
@@ -705,6 +1011,7 @@ function showTab(tab) {{
   document.getElementById("tabStudy").classList.toggle("on", tab === "study");
   document.getElementById("tabBuild").classList.toggle("on", tab === "build");
   document.getElementById("board").style.display = tab === "kanban" ? "flex" : "none";
+  document.getElementById("filterbar").style.display = tab === "kanban" ? "flex" : "none";
   document.getElementById("studyView").style.display = tab === "study" ? "block" : "none";
   document.getElementById("buildView").style.display = tab === "build" ? "block" : "none";
   if (tab === "study") {{ if (decksData === null) loadDecks(); else renderStudy(); }}
@@ -729,6 +1036,7 @@ function probRow(it) {{
   return `<div class="prob-row">` +
     `<div class="chk ${{done ? "done" : ""}}" title="toggle done" onclick="toggleDone('${{it.id}}',${{done}})">${{done ? "✓" : ""}}</div>` +
     `<span class="prob-title ${{done ? "done" : ""}}">${{escHtml(it.title || it.id)}}</span>` +
+    companyTags(it) +
     `<span class="prob-links">${{links.join("")}}</span></div>`;
 }}
 
@@ -828,6 +1136,9 @@ function studyProblemsHtml(probs) {{
 function studyDecksHtml(shown) {{
   let html = `<div class="study-section">`;
   if (!decksData) return html + '<div class="study-empty">Loading decks…</div></div>';
+  html += `<div class="qz-launch">` +
+    `<button class="qz-start" style="margin-left:0" onclick="openQuizBuilder()">▤ Build a typed-code quiz →</button>` +
+    `<span class="qz-launch-note">Pick topics across decks and type the code answers.</span></div>`;
   html += shown.length ? shown.map(deckRow).join("") : '<div class="study-empty">No decks with cards yet.</div>';
   return html + `</div>`;
 }}
@@ -933,7 +1244,30 @@ function drop(e, col) {{
   draggedId = null;
 }}
 
+// Optimistic: apply the change to the in-memory board and re-render immediately,
+// then persist in the background. On failure, reconcile from the server.
 async function patch(id, updates) {{
+  const found = findItem(id);
+  if (found) {{
+    const it = found.item;
+    Object.keys(updates).forEach(k => {{
+      if (k === "note") return;
+      let v = updates[k];
+      if (typeof v === "string") v = v.replace(/^"([\\s\\S]*)"$/, "$1");  // unwrap quoted title
+      it[k] = v;
+    }});
+    if (updates.status) {{
+      const target = lastBoardData.columns.find(c => slugify(c) === slugify(updates.status));
+      if (target && target !== found.col) {{
+        const arr = lastBoardData.board[found.col] || [];
+        const i = arr.indexOf(it);
+        if (i >= 0) arr.splice(i, 1);
+        (lastBoardData.board[target] = lastBoardData.board[target] || []).push(it);
+      }}
+    }}
+    renderBoard(lastBoardData);
+  }}
+  setStatus("Saving…");
   try {{
     const r = await fetch(apiUrl(`/api/items/${{id}}`), {{
       method: "PATCH",
@@ -941,19 +1275,21 @@ async function patch(id, updates) {{
       body: JSON.stringify(updates)
     }});
     if (!r.ok) throw new Error(`HTTP ${{r.status}}`);
-    await fetchBoard();
+    setStatus(`Saved ${{new Date().toLocaleTimeString()}}`);
   }} catch(e) {{
-    setStatus(`Error: ${{e.message}}`, true);
+    setStatus(`Save failed: ${{e.message}} — reverting`, true);
+    await fetchBoard();  // reconcile from server
   }}
 }}
 
 async function fetchBoard() {{
+  clearTimeout(pollTimer);
   try {{
     const r = await fetch(apiUrl("/api/board"));
     if (!r.ok) throw new Error(`HTTP ${{r.status}}`);
     const data = await r.json();
     renderBoard(data);
-    setStatus(`Updated ${{new Date().toLocaleTimeString()}} · refreshes every 30s`);
+    setStatus(`Updated ${{new Date().toLocaleTimeString()}} · refreshes every 15s`);
   }} catch(e) {{
     setStatus(`Error: ${{e.message}}`, true);
   }}
@@ -961,8 +1297,15 @@ async function fetchBoard() {{
 }}
 
 // ── Flashcard modal: Reference (browse Q+A) + Quiz (reveal + self-mark) ──
-let fcCards = [], fcIdx = 0, fcMode = "reference", fcRevealed = false;
+let fcAllCards = [], fcCards = [], fcIdx = 0, fcMode = "reference", fcRevealed = false;
 let fcResults = [], fcDone = false, fcVizCache = {{}};
+let fcAutoPass = false, fcLastInput = "";
+
+// Type mode only makes sense for cards whose answer IS code (has a fenced block).
+function fcHasCode(c) {{ return /```/.test(String(c.a || "")); }}
+function fcCardsForMode(mode) {{
+  return mode === "type" ? fcAllCards.filter(fcHasCode) : fcAllCards.slice();
+}}
 
 function fcInline(t) {{
   let s = escHtml(t);
@@ -1027,13 +1370,14 @@ async function openFlashcards(key) {{
     const r = await fetch(apiUrl("/api/flashcards") + (apiUrl("/api/flashcards").includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key));
     if (!r.ok) throw new Error(`HTTP ${{r.status}}`);
     const data = await r.json();
-    fcCards = data.cards || [];
+    fcAllCards = data.cards || [];
     const topic = key.replace(/\\/flashcards\\.md$/, "").replace(/^kb\\//, "").replace(/[-/]/g, " ");
     document.getElementById("fcTitle").textContent = topic || "Flashcards";
-    if (!fcCards.length) {{
+    if (!fcAllCards.length) {{
       document.getElementById("fcBody").innerHTML = '<div class="fc-prompt">This deck has no cards yet.</div>';
       return;
     }}
+    fcCards = fcCardsForMode(fcMode);
     fcResults = new Array(fcCards.length).fill(null);
     fcRender();
   }} catch (e) {{
@@ -1045,11 +1389,36 @@ function fcClose() {{ document.getElementById("fcOverlay").classList.remove("ope
 
 function fcSetMode(mode) {{
   fcMode = mode;
-  fcIdx = 0; fcRevealed = false; fcDone = false;
+  fcCards = fcCardsForMode(mode);
+  fcIdx = 0; fcRevealed = false; fcDone = false; fcLastInput = ""; fcAutoPass = false;
   fcResults = new Array(fcCards.length).fill(null);
   document.getElementById("fcModeRef").classList.toggle("on", mode === "reference");
   document.getElementById("fcModeQuiz").classList.toggle("on", mode === "quiz");
-  if (fcCards.length) fcRender();
+  document.getElementById("fcModeType").classList.toggle("on", mode === "type");
+  if (fcAllCards.length) fcRender();
+}}
+
+// Pull the code out of an answer (first fenced block), else the whole answer.
+function fcExtractCode(a) {{
+  const m = String(a || "").match(/```[a-zA-Z0-9+-]*\\n([\\s\\S]*?)```/);
+  return (m ? m[1] : String(a || "")).replace(/\\n+$/, "");
+}}
+// Normalize for comparison: trim each line, collapse internal runs of spaces,
+// drop blank lines. Case-sensitive (Python is) and order-sensitive.
+function fcNormCode(s) {{
+  return String(s).split("\\n").map(l => l.trim().replace(/[ \\t]+/g, " "))
+    .filter(l => l.length).join("\\n");
+}}
+function fcCodeKey(e) {{
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {{ e.preventDefault(); fcCheck(); }}
+}}
+function fcCheck() {{
+  const t = document.getElementById("fcCodeInput");
+  fcLastInput = t ? t.value : "";
+  fcAutoPass = fcNormCode(fcLastInput) === fcNormCode(fcExtractCode(fcCards[fcIdx].a));
+  fcResults[fcIdx] = fcAutoPass;   // tentative — self-grade buttons can override
+  fcRevealed = true;
+  fcRender();
 }}
 
 function fcDots() {{
@@ -1065,15 +1434,23 @@ function fcDots() {{
 function fcRender() {{
   const body = document.getElementById("fcBody");
   const foot = document.getElementById("fcFoot");
+  if (!fcCards.length) {{
+    body.innerHTML = `<div class="fc-prompt">${{fcMode === "type"
+      ? "No code cards in this deck — Type mode only quizzes cards whose answer is code. Try Reference or Quiz."
+      : "No cards to show."}}</div>`;
+    foot.innerHTML = `<button class="fc-btn" onclick="fcClose()">Close</button>`;
+    return;
+  }}
   const card = fcCards[fcIdx];
   const prog = `<span class="fc-prog">${{fcIdx + 1}} / ${{fcCards.length}}</span>`;
 
-  if (fcMode === "quiz" && fcDone) {{
+  if ((fcMode === "quiz" || fcMode === "type") && fcDone) {{
     const known = fcResults.filter(x => x === true).length;
     const missed = fcResults.filter(x => x === false).length;
     const pct = Math.round((known / fcCards.length) * 100);
+    const verb = fcMode === "type" ? "wrote" : "knew";
     body.innerHTML = `<div class="fc-result"><div class="fc-score">${{known}} / ${{fcCards.length}}</div>` +
-      `<p>You knew ${{pct}}% of the deck${{missed ? ` · ${{missed}} to review` : " · perfect!"}}</p></div>`;
+      `<p>You ${{verb}} ${{pct}}% of the deck${{missed ? ` · ${{missed}} to review` : " · perfect!"}}</p></div>`;
     foot.innerHTML =
       (missed ? `<button class="fc-btn primary" onclick="fcReviewMissed()">Review ${{missed}} missed</button>` : "") +
       `<button class="fc-btn" onclick="fcRestart()">Restart</button>` +
@@ -1089,6 +1466,27 @@ function fcRender() {{
       `<button class="fc-btn" onclick="fcGo(-1)" ${{fcIdx === 0 ? "disabled" : ""}}>‹ Prev</button>` +
       `<button class="fc-btn" onclick="fcGo(1)" ${{fcIdx === fcCards.length - 1 ? "disabled" : ""}}>Next ›</button>` +
       prog + fcDots();
+  }} else if (fcMode === "type") {{
+    if (!fcRevealed) {{
+      body.innerHTML = q +
+        `<textarea class="fc-code" id="fcCodeInput" spellcheck="false" autocapitalize="off"
+           autocorrect="off" placeholder="type the code…" onkeydown="fcCodeKey(event)"></textarea>` +
+        `<div class="fc-hint">Press <b>Check</b> or <b>⌘/Ctrl + Enter</b>. Spacing is normalized. If yours is equivalent (e.g. different variable names), mark <b>Got it ✓</b>.</div>`;
+      foot.innerHTML = `<button class="fc-btn primary" onclick="fcCheck()">Check</button>` + prog + fcDots();
+      setTimeout(() => {{ const t = document.getElementById("fcCodeInput"); if (t) {{ t.value = fcLastInput || ""; t.focus(); }} }}, 0);
+    }} else {{
+      const verdict = fcAutoPass
+        ? `<div class="fc-verdict good">✓ Exact match</div>`
+        : `<div class="fc-verdict bad">✗ Not an exact match — compare below</div>`;
+      body.innerHTML = q + verdict +
+        `<div class="fc-sub">Your answer</div><pre class="fc-yourcode"><code>${{escHtml(fcLastInput || "(empty)")}}</code></pre>` +
+        `<div class="fc-sub">Expected</div><div class="fc-a">${{fcMd(card.a)}}</div>`;
+      fcMountViz(card.a, body);
+      foot.innerHTML =
+        `<button class="fc-btn bad" onclick="fcMark(false)">Review ✗</button>` +
+        `<button class="fc-btn good" onclick="fcMark(true)">Got it ✓</button>` +
+        prog + fcDots();
+    }}
   }} else {{
     const a = fcRevealed ? `<div class="fc-a">${{fcMd(card.a)}}</div>`
                          : `<div class="fc-prompt">Press <b>Space</b> or Reveal to show the answer.</div>`;
@@ -1110,11 +1508,11 @@ function fcGo(d) {{
 function fcReveal() {{ fcRevealed = true; fcRender(); }}
 function fcMark(known) {{
   fcResults[fcIdx] = known;
-  if (fcIdx < fcCards.length - 1) {{ fcIdx++; fcRevealed = false; fcRender(); }}
+  if (fcIdx < fcCards.length - 1) {{ fcIdx++; fcRevealed = false; fcLastInput = ""; fcAutoPass = false; fcRender(); }}
   else {{ fcDone = true; fcRender(); }}
 }}
 function fcRestart() {{
-  fcIdx = 0; fcRevealed = false; fcDone = false;
+  fcIdx = 0; fcRevealed = false; fcDone = false; fcLastInput = ""; fcAutoPass = false;
   fcResults = new Array(fcCards.length).fill(null);
   fcRender();
 }}
@@ -1123,6 +1521,144 @@ function fcReviewMissed() {{
   fcRestart();
 }}
 
+// ── Full-page typed-code quiz (Study → Quizzes → Build a quiz) ──
+let qzDeckCards = {{}};   // deck key -> [code cards] (cached across opens)
+let qzSelected = new Set();
+let qzPool = [], qzIdx = 0, qzResults = [], qzRevealed = false, qzAutoPass = false, qzLastInput = "", qzDone = false;
+
+function qzShuffle(a) {{
+  for (let i = a.length - 1; i > 0; i--) {{
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }}
+  return a;
+}}
+function qzWrap() {{ return document.querySelector("#quizView .quiz-wrap"); }}
+
+async function openQuizBuilder() {{
+  const view = document.getElementById("quizView");
+  view.classList.add("open");
+  view.innerHTML = `<div class="quiz-top"><h2>Typed-code quiz</h2>` +
+    `<button class="quiz-close" onclick="closeQuiz()">Close ✕</button></div>` +
+    `<div class="quiz-wrap"><div class="quiz-lead">Loading decks…</div></div>`;
+  const decks = (decksData || []).filter(d => d.cards > 0);
+  await Promise.all(decks.map(async d => {{
+    if (qzDeckCards[d.key]) return;
+    try {{
+      const r = await fetch(apiUrl("/api/flashcards") + "&key=" + encodeURIComponent(d.key));
+      const data = await r.json();
+      qzDeckCards[d.key] = (data.cards || []).filter(fcHasCode).map(c => ({{q: c.q, a: c.a, deck: d.topic}}));
+    }} catch (e) {{ qzDeckCards[d.key] = []; }}
+  }}));
+  qzSelected = new Set(decks.filter(d => (qzDeckCards[d.key] || []).length).map(d => d.key));
+  renderQuizSetup();
+}}
+
+function renderQuizSetup() {{
+  const wrap = qzWrap();
+  const decks = (decksData || []).filter(d => (qzDeckCards[d.key] || []).length);
+  if (!decks.length) {{
+    wrap.innerHTML = `<div class="quiz-lead">No decks have code cards yet. Add cards whose answer is a code block (like the Python Syntax deck).</div>`;
+    return;
+  }}
+  const total = decks.filter(d => qzSelected.has(d.key)).reduce((a, d) => a + qzDeckCards[d.key].length, 0);
+  wrap.innerHTML =
+    `<div class="quiz-lead">Pick the topics to include. You'll type the code answer for each card — spacing is normalized, and you can self-grade equivalent code (e.g. different variable names).</div>` +
+    `<div class="qz-topics">` + decks.map(d => {{
+      const n = qzDeckCards[d.key].length;
+      return `<label class="qz-topic"><input type="checkbox" ${{qzSelected.has(d.key) ? "checked" : ""}} onchange="qzToggle('${{escHtml(d.key)}}')">` +
+        `<span class="qz-name">${{escHtml(d.topic)}}</span><span class="qz-cnt">${{n}} card${{n === 1 ? "" : "s"}}</span></label>`;
+    }}).join("") + `</div>` +
+    `<div class="qz-setup-actions">` +
+      `<button class="qz-selectall" onclick="qzSelectAll(true)">Select all</button>` +
+      `<button class="qz-selectall" onclick="qzSelectAll(false)">Clear</button>` +
+      `<button class="qz-start" ${{total ? "" : "disabled"}} onclick="startQuiz()">Start · ${{total}} question${{total === 1 ? "" : "s"}}</button>` +
+    `</div>`;
+}}
+function qzToggle(key) {{ qzSelected.has(key) ? qzSelected.delete(key) : qzSelected.add(key); renderQuizSetup(); }}
+function qzSelectAll(on) {{
+  const decks = (decksData || []).filter(d => (qzDeckCards[d.key] || []).length);
+  qzSelected = on ? new Set(decks.map(d => d.key)) : new Set();
+  renderQuizSetup();
+}}
+
+function startQuiz() {{
+  qzPool = [];
+  (decksData || []).forEach(d => {{ if (qzSelected.has(d.key)) qzPool.push(...(qzDeckCards[d.key] || [])); }});
+  qzShuffle(qzPool);
+  qzIdx = 0; qzResults = new Array(qzPool.length).fill(null);
+  qzRevealed = false; qzAutoPass = false; qzLastInput = ""; qzDone = false;
+  qzRender();
+}}
+
+function qzRender() {{
+  const wrap = qzWrap();
+  if (!qzPool.length) {{ qzBackToSetup(); return; }}
+  if (qzDone) {{
+    const known = qzResults.filter(x => x === true).length;
+    const missed = qzResults.filter(x => x === false).length;
+    const pct = Math.round(known / qzPool.length * 100);
+    wrap.innerHTML = `<div class="qz-result"><div class="fc-score">${{known}} / ${{qzPool.length}}</div>` +
+      `<p style="color:#7d8590;margin:6px 0 18px">You wrote ${{pct}}% correct${{missed ? ` · ${{missed}} to review` : " · perfect!"}}</p>` +
+      `<div class="qz-actions" style="justify-content:center">` +
+        (missed ? `<button class="fc-btn primary" onclick="qzReviewMissed()">Review ${{missed}} missed</button>` : "") +
+        `<button class="fc-btn" onclick="startQuiz()">Restart</button>` +
+        `<button class="fc-btn" onclick="qzBackToSetup()">New quiz</button>` +
+        `<button class="fc-btn" onclick="closeQuiz()">Close</button>` +
+      `</div></div>`;
+    return;
+  }}
+  const card = qzPool[qzIdx];
+  const prog = `<div class="qz-progress"><span style="width:${{Math.round(qzIdx / qzPool.length * 100)}}%"></span></div>` +
+    `<div class="qz-count">${{qzIdx + 1}} / ${{qzPool.length}}</div>`;
+  const chip = card.deck ? `<div class="qz-deck-chip">${{escHtml(card.deck)}}</div>` : "";
+  if (!qzRevealed) {{
+    wrap.innerHTML = prog + chip + `<div class="fc-q">${{escHtml(card.q)}}</div>` +
+      `<textarea class="fc-code" id="qzCodeInput" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="type the code…" onkeydown="qzCodeKey(event)"></textarea>` +
+      `<div class="fc-hint">Press <b>Check</b> or <b>⌘/Ctrl + Enter</b>.</div>` +
+      `<div class="qz-actions"><button class="fc-btn primary" onclick="qzCheck()">Check</button></div>`;
+    const t = document.getElementById("qzCodeInput"); if (t) {{ t.value = qzLastInput || ""; t.focus(); }}
+  }} else {{
+    const verdict = qzAutoPass
+      ? `<div class="fc-verdict good">✓ Exact match</div>`
+      : `<div class="fc-verdict bad">✗ Not an exact match — compare below</div>`;
+    wrap.innerHTML = prog + chip + `<div class="fc-q">${{escHtml(card.q)}}</div>` + verdict +
+      `<div class="fc-sub">Your answer</div><pre class="fc-yourcode"><code>${{escHtml(qzLastInput || "(empty)")}}</code></pre>` +
+      `<div class="fc-sub">Expected</div><div class="fc-a">${{fcMd(card.a)}}</div>` +
+      `<div class="qz-actions"><button class="fc-btn bad" onclick="qzMark(false)">Review ✗</button>` +
+      `<button class="fc-btn good" onclick="qzMark(true)">Got it ✓</button></div>`;
+    fcMountViz(card.a, wrap);
+  }}
+}}
+function qzCodeKey(e) {{ if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {{ e.preventDefault(); qzCheck(); }} }}
+function qzCheck() {{
+  const t = document.getElementById("qzCodeInput");
+  qzLastInput = t ? t.value : "";
+  qzAutoPass = fcNormCode(qzLastInput) === fcNormCode(fcExtractCode(qzPool[qzIdx].a));
+  qzResults[qzIdx] = qzAutoPass;
+  qzRevealed = true; qzRender();
+}}
+function qzMark(known) {{
+  qzResults[qzIdx] = known;
+  if (qzIdx < qzPool.length - 1) {{ qzIdx++; qzRevealed = false; qzLastInput = ""; qzAutoPass = false; qzRender(); }}
+  else {{ qzDone = true; qzRender(); }}
+}}
+function qzReviewMissed() {{
+  qzPool = qzPool.filter((c, i) => qzResults[i] === false);
+  qzIdx = 0; qzResults = new Array(qzPool.length).fill(null);
+  qzRevealed = false; qzAutoPass = false; qzLastInput = ""; qzDone = false; qzRender();
+}}
+function qzBackToSetup() {{ renderQuizSetup(); }}
+function closeQuiz() {{ document.getElementById("quizView").classList.remove("open"); }}
+
+document.addEventListener("keydown", (e) => {{
+  if (!document.getElementById("quizView").classList.contains("open")) return;
+  if (e.key === "Escape") {{ closeQuiz(); return; }}
+  if (qzDone || !qzPool.length || !qzRevealed) return;
+  if (e.key === "ArrowRight") {{ qzMark(true); e.preventDefault(); }}
+  else if (e.key === "ArrowLeft") {{ qzMark(false); e.preventDefault(); }}
+}});
+
 document.addEventListener("keydown", (e) => {{
   if (!document.getElementById("fcOverlay").classList.contains("open")) return;
   if (e.key === "Escape") {{ fcClose(); return; }}
@@ -1130,6 +1666,11 @@ document.addEventListener("keydown", (e) => {{
   if (fcMode === "reference") {{
     if (e.key === "ArrowLeft") {{ fcGo(-1); e.preventDefault(); }}
     else if (e.key === "ArrowRight") {{ fcGo(1); e.preventDefault(); }}
+  }} else if (fcMode === "type") {{
+    // While typing (not revealed), let the textarea handle every key; ⌘/Ctrl+Enter
+    // (handled on the textarea) checks. After checking, arrows self-grade.
+    if (fcRevealed && e.key === "ArrowRight") {{ fcMark(true); e.preventDefault(); }}
+    else if (fcRevealed && e.key === "ArrowLeft") {{ fcMark(false); e.preventDefault(); }}
   }} else {{
     if (!fcRevealed && (e.key === " " || e.key === "Enter")) {{ fcReveal(); e.preventDefault(); }}
     else if (fcRevealed && e.key === "ArrowRight") {{ fcMark(true); e.preventDefault(); }}

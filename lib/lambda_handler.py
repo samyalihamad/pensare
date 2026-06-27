@@ -33,6 +33,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kanban_core  # noqa: E402
@@ -58,6 +59,26 @@ ALGO_VIZ_CSS = _load_asset("algo_viz.css")
 
 # Cache project secrets across warm invocations.
 _secret_cache: dict[str, str] = {}
+
+# Cache the parsed board per project across warm invocations. load_board() does
+# one S3 GET per item (~90), so without this every poll re-reads the whole board.
+# Short TTL so out-of-band edits (CLI / model) still surface within a few seconds;
+# UI edits invalidate the entry immediately.
+_board_cache: dict[str, dict] = {}
+# Short TTL: the cache is per-container, so a PATCH only invalidates the container
+# that served it. Keeping the window small bounds cross-container staleness; the
+# UI's optimistic updates already make the editor's own changes feel instant.
+_BOARD_TTL = 3.0
+
+
+def _board_payload(store, project: str) -> dict:
+    ent = _board_cache.get(project)
+    now = time.time()
+    if ent and now - ent["ts"] < _BOARD_TTL:
+        return ent["data"]
+    data = kanban_core.load_board(store)
+    _board_cache[project] = {"ts": now, "data": data}
+    return data
 
 CORS = {
     "Access-Control-Allow-Origin": "*",  # secret is the real gate; TLS protects it
@@ -344,7 +365,7 @@ def handler(event, context):
 
     try:
         if method == "GET" and path.rstrip("/") == "/api/board":
-            return _resp(200, kanban_core.load_board(store))
+            return _resp(200, _board_payload(store, project))
 
         if method == "GET" and path.rstrip("/") == "/api/flashcards":
             # Parsed Q/A for a deck, so the board can show an in-page flip-card modal
@@ -402,7 +423,11 @@ def handler(event, context):
                 raw = base64.b64decode(raw).decode("utf-8")
             updates = json.loads(raw)
             kanban_core.update_item(store, item_key, updates)
-            kanban_core.regenerate_index(store)
+            # INDEX.md is a human-readable mirror the UI never reads, and
+            # regenerate_index() re-reads every item (~90 S3 GETs). Keeping it off
+            # the edit hot path is the main latency fix; it's refreshed on add and
+            # by the CLI. Just drop the stale board cache so the next load is fresh.
+            _board_cache.pop(project, None)
             return _resp(200, {"ok": True})
     except Exception as exc:  # surface errors as JSON, not a 502
         return _resp(500, {"error": str(exc)})
