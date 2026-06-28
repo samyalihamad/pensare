@@ -331,7 +331,7 @@ HTML = """\
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;display:flex;flex-direction:column}}
 header{{
-  display:flex;align-items:center;gap:10px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   padding:14px 20px;border-bottom:1px solid #21262d;
   background:#161b22;flex-shrink:0
 }}
@@ -576,6 +576,24 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 .qz-deck-chip{{display:inline-block;font-size:11px;color:#bc8cff;background:#2b1d3d;border:1px solid #3c2a52;border-radius:10px;padding:1px 9px;margin-bottom:12px}}
 .qz-actions{{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}}
 .qz-result{{text-align:center;padding:44px 8px}}
+/* per-card move arrows: hidden on desktop (use drag), shown on small screens */
+.card-move{{display:none;gap:6px;margin-top:8px}}
+.card-move .mv{{flex:1;font:inherit;font-size:14px;line-height:1;cursor:pointer;
+  background:#0d1117;border:1px solid #21262d;color:#7d8590;border-radius:6px;padding:7px 0}}
+.card-move .mv:disabled{{opacity:.3;cursor:default}}
+.card-move .mv:active{{background:#1a2230;color:#e6edf3}}
+/* mobile: stack the board vertically, show move arrows, roomier touch targets */
+@media (max-width: 700px) {{
+  .board{{flex-direction:column;overflow-x:visible;gap:14px;padding:14px}}
+  .column{{flex:none;width:100%;min-width:0}}
+  .card-move{{display:flex}}
+  .card{{cursor:default}}
+  .study{{padding:14px 12px 60px}}
+  .filterbar{{padding:9px 12px}}
+  .filterbar input.search{{min-width:0;flex:1 1 100%}}
+  header{{padding:12px 14px}}
+  header h1{{font-size:14px}}
+}}
 .empty{{
   color:#484f58;font-size:12px;text-align:center;
   padding:22px 10px;font-style:italic
@@ -798,6 +816,22 @@ function companyTags(item) {{
     .map(c => `<span class="tag company">${{escHtml(c)}}</span>`).join("");
 }}
 
+function colIdx(item) {{
+  const cols = (lastBoardData && lastBoardData.columns) || [];
+  return cols.findIndex(c => slugify(c) === slugify(item.status || ""));
+}}
+
+function cardMove(item) {{
+  // Touch-friendly status move (shown only on small screens via CSS); no drag needed.
+  const cols = (lastBoardData && lastBoardData.columns) || [];
+  const i = colIdx(item);
+  const atStart = i <= 0, atEnd = i < 0 || i >= cols.length - 1;
+  return `<div class="card-move">` +
+    `<button class="mv" title="Move left" onclick="moveCard(event,'${{item.id}}',-1)" ${{atStart ? "disabled" : ""}}>◀</button>` +
+    `<button class="mv" title="Move right" onclick="moveCard(event,'${{item.id}}',1)" ${{atEnd ? "disabled" : ""}}>▶</button>` +
+    `</div>`;
+}}
+
 function renderCard(item) {{
   return `<div class="card" draggable="true"
     ondragstart="dragStart(event,'${{item.id}}')"
@@ -811,7 +845,19 @@ function renderCard(item) {{
       ${{companyTags(item)}}
     </div>
     ${{cardLinks(item)}}
+    ${{cardMove(item)}}
   </div>`;
+}}
+
+function moveCard(e, id, dir) {{
+  e.stopPropagation();                 // don't open the editor
+  const cols = (lastBoardData && lastBoardData.columns) || [];
+  const found = findItem(id);
+  if (!found) return;
+  const i = cols.indexOf(found.col);
+  const t = i + dir;
+  if (t < 0 || t >= cols.length) return;
+  patch(id, {{status: slugify(cols[t])}});   // optimistic move + persist
 }}
 
 function escHtml(s) {{
