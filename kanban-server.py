@@ -17,18 +17,32 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import subprocess
 import sys
 import threading
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # lib/ sits beside this file (dev symlink or installed copy).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib import kanban_core, storage  # noqa: E402
+from lib import kanban_core, storage, lambda_handler  # noqa: E402
 
 DEFAULT_PORT = 7331
+
+# Offline rewrite: turn hosted-Lambda absolute URLs into relative paths (so /doc and
+# /api/* resolve to THIS local server) and point highlight.js at the local /assets copy.
+_LAMBDA_RE = re.compile(r"https://[a-z0-9-]+\.lambda-url\.[a-z0-9-]+\.on\.aws")
+_HLJS_JS = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+_HLJS_CSS = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+
+
+def offline_rewrite(s: str) -> str:
+    s = _LAMBDA_RE.sub("", s)
+    s = s.replace(_HLJS_JS, "/assets/highlight.min.js").replace(_HLJS_CSS, "/assets/hljs.css")
+    return s
 
 
 def expand(p: str) -> Path:
@@ -59,21 +73,98 @@ class KanbanHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_bytes(self, body: bytes, ctype: str):
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _qs_key(self):
+        q = parse_qs(urlparse(self.path).query)
+        key = (q.get("key") or [""])[0]
+        if not key.endswith(".md") or ".." in key or key.startswith("/"):
+            return None
+        return key
+
     def do_GET(self):
         path = urlparse(self.path).path
 
         if path == "/api/board":
             try:
-                self.send_json(kanban_core.load_board(self.store))
+                data = json.dumps(kanban_core.load_board(self.store))
+                self._send_bytes(offline_rewrite(data).encode(), "application/json")
             except Exception as exc:
                 self.send_json({"error": str(exc)}, status=500)
 
         elif path in ("/", "/index.html"):
-            self.send_html(kanban_core.render_board_html(self.project))
+            self.send_html(offline_rewrite(kanban_core.render_board_html(self.project)))
+
+        elif path == "/doc":
+            key = self._qs_key()
+            if not key or not self.store.exists(key):
+                self.send_response(404); self.end_headers(); return
+            title = key.rsplit("/", 1)[-1][:-3].replace("-", " ").title()
+            html = lambda_handler._md_to_html(self.store.read(key), title=title, back_href="/")
+            self._send_bytes(offline_rewrite(html).encode(), "text/html; charset=utf-8")
+
+        elif path == "/api/flashcards":
+            key = self._qs_key()
+            if not key or not self.store.exists(key):
+                self.send_json({"error": "not found"}, status=404); return
+            self.send_json({"key": key, "cards": lambda_handler._parse_flashcards(self.store.read(key))})
+
+        elif path == "/api/decks":
+            self.send_json({"decks": lambda_handler._deck_list(self.store)})
+
+        elif path == "/api/viz":
+            key = self._qs_key()
+            if not key or not self.store.exists(key):
+                self.send_json({"error": "not found"}, status=404); return
+            self.send_json({"key": key, "vizzes": lambda_handler._extract_vizzes(self.store.read(key))})
+
+        elif path.startswith("/assets/"):
+            name = os.path.basename(path)
+            f = (self.store.root / "assets" / name)
+            if not f.exists():
+                self.send_response(404); self.end_headers(); return
+            ctype = "text/javascript" if name.endswith(".js") else "text/css"
+            self._send_bytes(f.read_bytes(), ctype)
 
         else:
             self.send_response(404)
             self.end_headers()
+
+    def do_POST(self):
+        # One-click sync (used by the in-board Sync buttons; needs internet).
+        if urlparse(self.path).path == "/api/sync":
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                body = json.loads(self.rfile.read(length) or "{}")
+            except json.JSONDecodeError:
+                self.send_json({"ok": False, "out": "bad request"}, 400); return
+            action = body.get("action")
+            if action not in ("pull", "push"):
+                self.send_json({"ok": False, "out": "action must be pull or push"}, 400); return
+            repo = os.path.dirname(os.path.abspath(__file__))
+            script = os.path.join(repo, "deploy", "sync_offline.py")
+            s3 = self.project
+            try:
+                s3 = json.loads(self.store.read("sources.json")).get("sync_project", s3)
+            except Exception:
+                pass
+            if s3 == self.project and s3.endswith("-offline"):
+                s3 = s3[:-len("-offline")]
+            cmd = ["python3", script, "--project", s3, "--dir", str(self.store.root), action]
+            if action == "push" and body.get("dry"):
+                cmd.append("--dry-run")
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                self.send_json({"ok": r.returncode == 0, "out": (r.stdout + r.stderr).strip()})
+            except Exception as exc:
+                self.send_json({"ok": False, "out": f"sync failed (offline?): {exc}"}, 500)
+            return
+        self.send_response(404); self.end_headers()
 
     def do_PATCH(self):
         path = urlparse(self.path).path

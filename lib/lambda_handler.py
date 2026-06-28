@@ -206,7 +206,10 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
                     continue
                 except Exception:
                     pass  # malformed JSON -> render as a normal code block
-            body.append("<pre><code>" + _html.escape(raw_code) + "</code></pre>")
+            # language class lets highlight.js color it; bare fences (ASCII diagrams)
+            # are marked nohighlight so they're left as-is.
+            cls = f' class="language-{lang}"' if lang else ' class="nohighlight"'
+            body.append("<pre><code" + cls + ">" + _html.escape(raw_code) + "</code></pre>")
             continue
 
         h = re.match(r"^(#{1,6})\s+(.*)$", line)
@@ -239,11 +242,22 @@ def _md_to_html(md: str, *, title: str = "Explanation", back_href: str = "") -> 
     back = f'<a class="back" href="{_html.escape(back_href)}">&larr; Back to board</a>' if back_href else ""
     extra_css = ALGO_VIZ_CSS if viz_ids else ""
     extra_js = f"<script>{ALGO_VIZ_JS}</script>" if (viz_ids and ALGO_VIZ_JS) else ""
+    # highlight.js (CDN): light/dark theme by system preference, run after body loads.
+    hljs_css = (
+        '<link rel="stylesheet" media="(prefers-color-scheme: light)" '
+        'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">'
+        '<link rel="stylesheet" media="(prefers-color-scheme: dark)" '
+        'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">'
+    )
+    hljs_js = (
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>'
+        '<script>if(window.hljs)hljs.highlightAll();</script>'
+    )
     return (
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{_html.escape(title)}</title><style>{_DOC_CSS}{extra_css}</style></head>"
-        f"<body>{back}{''.join(body)}{extra_js}</body></html>"
+        f"<title>{_html.escape(title)}</title>{hljs_css}<style>{_DOC_CSS}{extra_css}</style></head>"
+        f"<body>{back}{''.join(body)}{extra_js}{hljs_js}</body></html>"
     )
 
 

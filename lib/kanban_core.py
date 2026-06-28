@@ -338,6 +338,9 @@ header{{
 header h1{{font-size:15px;font-weight:600;white-space:nowrap}}
 header .project{{color:#58a6ff}}
 .item-count{{color:#7d8590;font-size:13px;margin-left:auto;white-space:nowrap}}
+.sync-ctl{{display:flex;gap:6px}}
+.sync-ctl button{{font:inherit;font-size:12px;cursor:pointer;background:#161b22;border:1px solid #21262d;color:#7d8590;padding:5px 11px;border-radius:7px;white-space:nowrap}}
+.sync-ctl button:hover{{color:#e6edf3;border-color:#30363d}}
 /* filter bar */
 .filterbar{{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -458,6 +461,7 @@ header .project{{color:#58a6ff}}
 .p-low{{background:#1c2128;color:#6e7681;border:1px solid #21262d}}
 .category{{background:#1c2d3d;color:#58a6ff;border:1px solid #1f3a52}}
 .company{{background:#2b1d3d;color:#bc8cff;border:1px solid #3c2a52}}
+.technique{{background:#10231c;color:#3fb98a;border:1px solid #1c3d31}}
 .card-links{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
 .card-link{{
   font-size:11px;padding:2px 8px;border-radius:6px;text-decoration:none;
@@ -576,6 +580,27 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 .qz-deck-chip{{display:inline-block;font-size:11px;color:#bc8cff;background:#2b1d3d;border:1px solid #3c2a52;border-radius:10px;padding:1px 9px;margin-bottom:12px}}
 .qz-actions{{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}}
 .qz-result{{text-align:center;padding:44px 8px}}
+/* concept roadmap (DAG view) */
+.rm-toggle{{display:flex;gap:6px;margin-bottom:14px}}
+.rm-toggle button{{font:inherit;font-size:12px;cursor:pointer;background:#161b22;border:1px solid #21262d;color:#7d8590;padding:6px 16px;border-radius:8px}}
+.rm-toggle button.on{{background:#241a33;color:#bc8cff;border-color:#3a2a52}}
+.rm-legend{{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:#7d8590;margin-bottom:12px;align-items:center}}
+.rm-legend i{{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}}
+.rm-legend .rm-hint{{font-style:italic;color:#6e7681}}
+.rm-meta{{font-size:12px;color:#7d8590;font-weight:400}}
+/* roadmap graph (SVG DAG) */
+.rm-wrap{{overflow-x:auto;border:1px solid #21262d;border-radius:10px;background:#0d1117;padding:10px}}
+.rm-gnode:hover rect{{filter:brightness(1.25)}}
+/* roadmap node modal */
+.rm-modal{{width:100%;max-width:620px;max-height:82vh;display:flex;flex-direction:column;background:#161b22;border:1px solid #30363d;border-radius:12px;box-shadow:0 16px 48px rgba(1,4,9,.6)}}
+.rm-modal-head{{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #21262d}}
+.rm-modal-title{{font-size:15px;font-weight:600;color:#e6edf3}}
+.rm-modal-body{{padding:6px 18px 18px;overflow:auto}}
+.rm-pre{{font-size:12.5px;color:#8b949e;margin:10px 0 0}}
+.rm-note{{font-size:13px;color:#8b949e;line-height:1.55;margin:6px 0}}
+.rm-sec{{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#7d8590;margin:14px 0 4px;font-weight:600}}
+.rm-skills{{font-size:12px;color:#8b949e;line-height:1.6;margin-top:14px}}
+.rm-skills b{{color:#c9d1d9}}
 /* per-card move arrows: hidden on desktop (use drag), shown on small screens */
 .card-move{{display:none;gap:6px;margin-top:8px}}
 .card-move .mv{{flex:1;font:inherit;font-size:14px;line-height:1;cursor:pointer;
@@ -678,10 +703,12 @@ button.card-link{{font-family:inherit;cursor:pointer}}
     <button class="tab" id="tabBuild" onclick="showTab('build')">Build</button>
   </div>
   <span class="item-count" id="count"></span>
+  <span class="sync-ctl" id="syncCtl"></span>
 </header>
 <div class="filterbar" id="filterbar">
   <input class="search" id="fltText" type="text" placeholder="Search title / id…" oninput="setFilter('text', this.value)">
   <select id="fltCompany" onchange="setFilter('company', this.value)"><option value="">All companies</option></select>
+  <select id="fltTechnique" onchange="setFilter('technique', this.value)"><option value="">All techniques</option></select>
   <select id="fltCategory" onchange="setFilter('category', this.value)"><option value="">All categories</option></select>
   <select id="fltPriority" onchange="setFilter('priority', this.value)">
     <option value="">Any priority</option><option value="high">high</option><option value="medium">medium</option><option value="low">low</option>
@@ -698,6 +725,16 @@ button.card-link{{font-family:inherit;cursor:pointer}}
 <div class="statusbar" id="statusbar">Connecting&hellip;</div>
 
 <div class="quiz-view" id="quizView"></div>
+
+<div class="ed-overlay" id="rmOverlay" onclick="if(event.target===this)closeRoadmapModal()">
+  <div class="rm-modal">
+    <div class="rm-modal-head">
+      <span class="rm-modal-title" id="rmTitle"></span>
+      <button class="ed-close" onclick="closeRoadmapModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="rm-modal-body" id="rmBody"></div>
+  </div>
+</div>
 
 <div class="ed-overlay" id="edOverlay" onclick="if(event.target===this)edClose()">
   <div class="ed-modal" role="dialog" aria-modal="true">
@@ -753,10 +790,34 @@ const PROJECT = "{project}";
 const SECRET = "{secret}";
 let pollTimer = null;
 let lastBoardData = null, currentTab = "kanban", decksData = null, studySub = "problems";
+let conceptView = "list";   // "list" | "roadmap"
+// Prerequisite roadmap (DAG) — id, display label/short, board topic for progress,
+// topological level (row), prereq edges, why, and the sub-skill breakdown.
+const ROADMAP = [
+ {{id:"arrays-hashing",label:"Arrays & Hashing",short:"Arrays & Hashing",topic:"Arrays & Hashing",level:1,prereqs:[],note:"Foundational; everything later stores/looks up data with arrays and hash maps.",subskills:["Hash map/set for O(1) lookup & frequency","Prefix sums / running aggregates","Group & dedup with hashing","In-place array tricks","Sorting as preprocessing"]}},
+ {{id:"two-pointers",label:"Two Pointers",short:"Two Pointers",topic:"Two Pointers",level:2,prereqs:["arrays-hashing"],note:"Scans sorted/indexed arrays; builds on array traversal.",subskills:["Converging ends (two-sum sorted)","Fast/slow same-direction","In-place partition / dedup","3-pointer combos (3Sum)","Palindrome / trapping-water scans"]}},
+ {{id:"stack",label:"Stack",short:"Stack",topic:"Stack",level:2,prereqs:["arrays-hashing"],note:"LIFO use over arrays.",subskills:["Matching pairs / valid parens","Monotonic stack (next greater)","Expression parsing (RPN)","Stack simulation","Min-stack design"]}},
+ {{id:"math-geometry",label:"Math & Geometry",short:"Math & Geo",topic:"Math & Geometry",level:2,prereqs:["arrays-hashing"],note:"Mostly self-contained simulation/number theory.",subskills:["Matrix transforms (rotate/spiral)","GCD/LCM, primes, modular","Overflow-safe arithmetic","Geometry basics","Simulation (pow, happy number)"]}},
+ {{id:"bit-manipulation",label:"Bit Manipulation",short:"Bit Manip.",topic:"Bit Manipulation",level:2,prereqs:["arrays-hashing"],note:"Low-level toolkit usable early.",subskills:["AND/OR/XOR/NOT & shifts","XOR tricks (single number)","Bit masking & popcount","Get/set/clear i-th bit","Subset enumeration via bitmasks"]}},
+ {{id:"binary-search",label:"Binary Search",short:"Binary Search",topic:"Binary Search",level:3,prereqs:["two-pointers"],note:"Converging pointers on sorted data → log search of a space.",subskills:["Lower/upper bound","Rotated / modified arrays","Search on the answer","2D matrix search","Inclusive vs exclusive bounds"]}},
+ {{id:"sliding-window",label:"Sliding Window",short:"Sliding Window",topic:"Sliding Window",level:3,prereqs:["two-pointers","arrays-hashing"],note:"Same-direction pointers + a hash map of window contents.",subskills:["Fixed-size window","Variable window grow/shrink","Window + count map","At-most-K / exactly-K trick","Minimum covering window"]}},
+ {{id:"linked-list",label:"Linked List",short:"Linked List",topic:"Linked List",level:3,prereqs:["two-pointers"],note:"Fast/slow pointers over node refs.",subskills:["Pointer reversal","Cycle detect / middle (fast-slow)","Dummy-head merge","Nth-from-end / reorder","Deep copy / LRU bookkeeping"]}},
+ {{id:"trees",label:"Trees",short:"Trees",topic:"Trees",level:4,prereqs:["linked-list","stack"],note:"Branching linked nodes; traversals need recursion/stack.",subskills:["DFS pre/in/post (rec & iter)","BFS level-order","BST search/insert/validate","Divide & conquer (height/diameter)","LCA & reconstruct, serialize"]}},
+ {{id:"tries",label:"Tries",short:"Tries",topic:"Tries",level:5,prereqs:["trees"],note:"Char-keyed n-ary tree.",subskills:["Trie node design","insert / search / startsWith","Wildcard DFS match","Word-search (trie+backtrack)","Prefix aggregation"]}},
+ {{id:"heap-priority-queue",label:"Heap / Priority Queue",short:"Heap / PQ",topic:"Heap / Priority Queue",level:5,prereqs:["trees"],note:"Complete binary tree in an array.",subskills:["push/pop, sift, heapify","Top-K / Kth element","Two-heap median","Merge K sorted","Greedy scheduling w/ heap"]}},
+ {{id:"backtracking",label:"Backtracking",short:"Backtracking",topic:"Backtracking",level:5,prereqs:["trees"],note:"DFS over an implicit decision tree.",subskills:["Subsets & combinations","Permutations","Constraint search + pruning","Grid / word-search DFS","choose-explore-unchoose"]}},
+ {{id:"graphs",label:"Graphs",short:"Graphs",topic:"Graphs",level:6,prereqs:["trees","backtracking","heap-priority-queue"],note:"Trees are acyclic graphs; add a visited set.",subskills:["Adjacency list/matrix","DFS/BFS + visited","Grid-as-graph (islands)","Topological sort","Union-Find","Multi-source BFS / shortest unweighted"]}},
+ {{id:"one-d-dp",label:"1-D Dynamic Programming",short:"1-D DP",topic:"1-D Dynamic Programming",level:6,prereqs:["backtracking"],note:"DP = memoized backtracking over overlapping subproblems.",subskills:["Recurrence + base cases","Memo vs tabulation","Linear DP (house robber)","Subsequence DP (LIS, Kadane)","Coin-change / 1-D knapsack","O(1) rolling space"]}},
+ {{id:"advanced-graphs",label:"Advanced Graphs",short:"Adv. Graphs",topic:"Advanced Graphs",level:7,prereqs:["graphs"],note:"Weighted edges & global structure.",subskills:["Dijkstra (non-neg weights)","Bellman-Ford / Floyd-Warshall","MST (Prim/Kruskal)","Advanced topo (alien dict)","Eulerian path"]}},
+ {{id:"two-d-dp",label:"2-D Dynamic Programming",short:"2-D DP",topic:"2-D Dynamic Programming",level:7,prereqs:["one-d-dp"],note:"1-D recurrences over two dimensions.",subskills:["Grid DP","Two-sequence DP (edit distance/LCS)","0/1 knapsack / target sum","Interval DP","String DP (regex/palindrome)"]}},
+ {{id:"greedy",label:"Greedy",short:"Greedy",topic:"Greedy",level:7,prereqs:["one-d-dp"],note:"When local optimum is globally optimal; contrast with DP.",subskills:["Exchange-argument proof","Interval/activity selection","Jump-game reachability","Greedy + heap","Partition-labels grouping"]}},
+ {{id:"intervals",label:"Intervals",short:"Intervals",topic:"Intervals",level:8,prereqs:["greedy","sliding-window"],note:"Sort-then-sweep / greedy over ranges.",subskills:["Sort + merge overlapping","Insert interval","Min-removal non-overlap","Meeting rooms (sweep/heap)","Interval intersection"]}}
+];
 const TOPIC_ORDER = ["Arrays & Hashing","Two Pointers","Sliding Window","Stack","Binary Search",
   "Linked List","Trees","Tries","Heap / Priority Queue","Backtracking","Graphs","Advanced Graphs",
   "1-D Dynamic Programming","2-D Dynamic Programming","Greedy","Intervals","Math & Geometry",
-  "Bit Manipulation","Concurrency","Design"];
+  "Bit Manipulation","Concurrency","Design",
+  "Python: Core","Python: Collections","Python: Patterns"];
 
 function apiUrl(path) {{
   const p = [];
@@ -816,6 +877,11 @@ function companyTags(item) {{
     .map(c => `<span class="tag company">${{escHtml(c)}}</span>`).join("");
 }}
 
+function techniqueTags(item) {{
+  return parseCompanies(item.techniques)   // same "[a, b]" list format
+    .map(t => `<span class="tag technique">${{escHtml(t)}}</span>`).join("");
+}}
+
 function colIdx(item) {{
   const cols = (lastBoardData && lastBoardData.columns) || [];
   return cols.findIndex(c => slugify(c) === slugify(item.status || ""));
@@ -843,6 +909,7 @@ function renderCard(item) {{
       ${{badge(item.priority)}}
       ${{categoryTag(item.category)}}
       ${{companyTags(item)}}
+      ${{techniqueTags(item)}}
     </div>
     ${{cardLinks(item)}}
     ${{cardMove(item)}}
@@ -871,10 +938,11 @@ function escHtml(s) {{
 // Concept / Build items have their own tabs, not the kanban.
 const offBoard = it => ["Concept", "Build"].includes(it.category || "");
 
-let filters = {{text:"", company:"", category:"", priority:"", status:""}};
+let filters = {{text:"", company:"", technique:"", category:"", priority:"", status:""}};
 
 function itemMatches(it) {{
   if (filters.company && !parseCompanies(it.companies).includes(filters.company)) return false;
+  if (filters.technique && !parseCompanies(it.techniques).includes(filters.technique)) return false;
   if (filters.category && (it.category || "") !== filters.category) return false;
   if (filters.priority && (it.priority || "") !== filters.priority) return false;
   if (filters.status && slugify(it.status || "") !== filters.status) return false;
@@ -888,8 +956,8 @@ function slugify(s) {{ return String(s).toLowerCase().replace(/\\s+/g, "-"); }}
 
 function setFilter(key, val) {{ filters[key] = val; if (lastBoardData) renderBoard(lastBoardData); }}
 function clearFilters() {{
-  filters = {{text:"", company:"", category:"", priority:"", status:""}};
-  ["fltText","fltCompany","fltCategory","fltPriority","fltStatus"].forEach(id => {{
+  filters = {{text:"", company:"", technique:"", category:"", priority:"", status:""}};
+  ["fltText","fltCompany","fltTechnique","fltCategory","fltPriority","fltStatus"].forEach(id => {{
     const el = document.getElementById(id); if (el) el.value = "";
   }});
   if (lastBoardData) renderBoard(lastBoardData);
@@ -899,6 +967,7 @@ function buildFilterOptions(data) {{
   const all = [];
   data.columns.forEach(col => (data.board[col] || []).forEach(it => {{ if (!offBoard(it)) all.push(it); }}));
   const companies = [...new Set(all.flatMap(it => parseCompanies(it.companies)))].sort();
+  const techniques = [...new Set(all.flatMap(it => parseCompanies(it.techniques)))].sort();
   const cats = [...new Set(all.map(it => it.category).filter(Boolean))].sort();
   const fill = (id, vals, keep) => {{
     const el = document.getElementById(id); if (!el) return;
@@ -908,6 +977,7 @@ function buildFilterOptions(data) {{
     el.value = cur;
   }};
   fill("fltCompany", companies, "All companies");
+  fill("fltTechnique", techniques, "All techniques");
   fill("fltCategory", cats, "All categories");
   const st = document.getElementById("fltStatus");
   if (st) {{
@@ -1082,7 +1152,7 @@ function probRow(it) {{
   return `<div class="prob-row">` +
     `<div class="chk ${{done ? "done" : ""}}" title="toggle done" onclick="toggleDone('${{it.id}}',${{done}})">${{done ? "✓" : ""}}</div>` +
     `<span class="prob-title ${{done ? "done" : ""}}">${{escHtml(it.title || it.id)}}</span>` +
-    companyTags(it) +
+    companyTags(it) + techniqueTags(it) +
     `<span class="prob-links">${{links.join("")}}</span></div>`;
 }}
 
@@ -1149,8 +1219,102 @@ function renderStudy() {{
   view.innerHTML = tabs + body;
 }}
 
+function setConceptView(v) {{ conceptView = v; renderStudy(); }}
+
+// topic -> {{done,total}} over PROBLEM items (have a topic, not Concept/Build)
+function roadmapProgress() {{
+  const m = {{}};
+  (lastBoardData.columns || []).forEach(col => (lastBoardData.board[col] || []).forEach(it => {{
+    if (!it.topic || ["Concept", "Build"].includes(it.category || "")) return;
+    (m[it.topic] = m[it.topic] || {{done:0, total:0}}).total++;
+    if (isDone(it)) m[it.topic].done++;
+  }}));
+  return m;
+}}
+
+function renderRoadmap() {{
+  const prog = roadmapProgress();
+  const byId = {{}}; ROADMAP.forEach(n => byId[n.id] = n);
+  const P = {{}}, mastered = {{}}, cleared = {{}};
+  ROADMAP.forEach(n => {{
+    const pr = prog[n.topic] || {{done:0, total:0}};
+    P[n.id] = pr.total ? Math.round(pr.done / pr.total * 100) : 0;
+    mastered[n.id] = pr.total > 0 && P[n.id] >= 80;
+    cleared[n.id] = mastered[n.id] || pr.total === 0;   // no content can't block
+  }});
+  const stateOf = n => {{
+    if (n.prereqs.some(p => byId[p] && !cleared[p])) return "locked";
+    if (mastered[n.id]) return "mastered";
+    if (P[n.id] > 0) return "in-progress";
+    return "available";
+  }};
+  // layout by topological level
+  const levels = {{}};
+  ROADMAP.forEach(n => (levels[n.level] = levels[n.level] || []).push(n));
+  const W = 960, rowGap = 120, top = 28, nodeW = 152, nodeH = 50;
+  const maxLevel = Math.max(...ROADMAP.map(n => n.level));
+  const pos = {{}};
+  Object.keys(levels).forEach(L => {{
+    const arr = levels[L], n = arr.length;
+    arr.forEach((nd, i) => {{ pos[nd.id] = {{x: W * (i + 0.5) / n, y: top + (L - 1) * rowGap}}; }});
+  }});
+  const H = top + (maxLevel - 1) * rowGap + nodeH + 14;
+  let edges = "";
+  ROADMAP.forEach(n => n.prereqs.forEach(p => {{
+    if (!pos[p]) return;
+    const a = pos[p], b = pos[n.id], my = (a.y + nodeH + b.y) / 2;
+    edges += `<path d="M${{a.x}},${{a.y + nodeH}} C${{a.x}},${{my}} ${{b.x}},${{my}} ${{b.x}},${{b.y}}" fill="none" stroke="#30363d" stroke-width="2"/>`;
+  }}));
+  const COL = {{locked:["#161b22","#2a2f37","#6e7681"], available:["#11151b","#1f6feb","#c9d1d9"],
+               "in-progress":["#2b1d3d","#8957e5","#fff"], mastered:["#0f2417","#2ea043","#fff"]}};
+  let nodes = "";
+  ROADMAP.forEach(n => {{
+    const s = stateOf(n), c = COL[s], pt = pos[n.id], x = pt.x - nodeW / 2, y = pt.y, pct = P[n.id];
+    nodes += `<g class="rm-gnode" style="cursor:pointer" onclick="openRoadmapModal('${{n.id}}')">` +
+      `<rect x="${{x}}" y="${{y}}" width="${{nodeW}}" height="${{nodeH}}" rx="10" fill="${{c[0]}}" stroke="${{c[1]}}" stroke-width="1.7"/>` +
+      `<text x="${{pt.x}}" y="${{y + 21}}" text-anchor="middle" fill="${{c[2]}}" font-size="11.5" font-weight="600">${{escHtml(n.short)}}</text>` +
+      `<rect x="${{x + 12}}" y="${{y + 32}}" width="${{nodeW - 24}}" height="6" rx="3" fill="#30363d"/>` +
+      (pct > 0 ? `<rect x="${{x + 12}}" y="${{y + 32}}" width="${{(nodeW - 24) * pct / 100}}" height="6" rx="3" fill="#3fb950"/>` : "") +
+      `</g>`;
+  }});
+  const legend = `<div class="rm-legend">` +
+    `<span><i style="background:#8957e5"></i>in progress</span>` +
+    `<span><i style="background:#2ea043"></i>mastered ≥80%</span>` +
+    `<span><i style="background:#1f6feb"></i>available</span>` +
+    `<span><i style="background:#2a2f37"></i>locked</span>` +
+    `<span class="rm-hint">tap a topic for its lessons & problems</span></div>`;
+  return legend + `<div class="rm-wrap"><svg viewBox="0 0 ${{W}} ${{H}}" width="100%" style="min-width:700px;height:auto">${{edges}}${{nodes}}</svg></div>`;
+}}
+
+function openRoadmapModal(id) {{
+  const n = ROADMAP.find(x => x.id === id); if (!n) return;
+  const probs = [], lessons = [];
+  (lastBoardData.columns || []).forEach(col => (lastBoardData.board[col] || []).forEach(it => {{
+    if (it.topic !== n.topic) return;
+    if ((it.category || "") === "Concept") lessons.push(it);
+    else if ((it.category || "") !== "Build") probs.push(it);
+  }}));
+  const done = probs.filter(isDone).length;
+  const pre = n.prereqs.map(p => {{ const x = ROADMAP.find(r => r.id === p); return x ? escHtml(x.label) : p; }}).join(", ");
+  document.getElementById("rmTitle").innerHTML = `${{escHtml(n.label)}} <span class="rm-meta">${{done}}/${{probs.length}} problems done</span>`;
+  document.getElementById("rmBody").innerHTML =
+    (pre ? `<p class="rm-pre"><b>Builds on:</b> ${{pre}}</p>` : "") +
+    (n.note ? `<p class="rm-note">${{escHtml(n.note)}}</p>` : "") +
+    `<div class="rm-sec">Lessons</div>` +
+    (lessons.length ? `<div class="prob-rows">` + lessons.map(conceptRow).join("") + `</div>` : `<div class="study-empty">No lesson yet.</div>`) +
+    `<div class="rm-sec">Practice problems</div>` +
+    (probs.length ? `<div class="prob-rows">` + probs.map(probRow).join("") + `</div>` : `<div class="study-empty">No problems yet.</div>`) +
+    `<div class="rm-skills"><b>Key sub-skills:</b> ${{(n.subskills || []).map(escHtml).join(" · ")}}</div>`;
+  document.getElementById("rmOverlay").classList.add("open");
+}}
+function closeRoadmapModal() {{ document.getElementById("rmOverlay").classList.remove("open"); }}
+
 function studyConceptsHtml(concepts) {{
-  let html = `<div class="study-section">`;
+  const toggle = `<div class="rm-toggle">` +
+    `<button class="${{conceptView === 'list' ? 'on' : ''}}" onclick="setConceptView('list')">List</button>` +
+    `<button class="${{conceptView === 'roadmap' ? 'on' : ''}}" onclick="setConceptView('roadmap')">Roadmap</button></div>`;
+  if (conceptView === "roadmap") return `<div class="study-section">` + toggle + renderRoadmap() + `</div>`;
+  let html = `<div class="study-section">` + toggle;
   if (!concepts.length) return html + '<div class="study-empty">No concept lessons yet.</div></div>';
   const order = TOPIC_ORDER.filter(t => concepts.some(c => c.topic === t))
     .concat([...new Set(concepts.map(c => c.topic))].filter(t => t && !TOPIC_ORDER.includes(t)).sort());
@@ -1724,7 +1888,32 @@ document.addEventListener("keydown", (e) => {{
   }}
 }});
 
+// Sync buttons appear ONLY on the local/offline app (localhost). The hosted board
+// can't run the sync script, so they stay hidden there.
+function initSync() {{
+  if (!/^(localhost|127\\.0\\.0\\.1)$/.test(location.hostname)) return;
+  const el = document.getElementById("syncCtl");
+  if (!el) return;
+  el.innerHTML =
+    `<button onclick="runSync('pull')" title="Download the latest from the cloud (needs internet)">↓ Pull</button>` +
+    `<button onclick="runSync('push')" title="Upload your offline changes to the cloud (needs internet)">↑ Sync up</button>`;
+}}
+async function runSync(action) {{
+  setStatus(action === "pull" ? "Pulling latest from cloud…" : "Syncing your changes up…");
+  try {{
+    const r = await fetch("/api/sync", {{method:"POST", headers:{{"Content-Type":"application/json"}},
+                                        body: JSON.stringify({{action}})}});
+    const d = await r.json();
+    const last = (d.out || "").split("\\n").filter(Boolean).slice(-1)[0] || (d.ok ? "done" : "failed");
+    setStatus((d.ok ? "✓ " : "✗ ") + last, !d.ok);
+    if (action === "pull" && d.ok) fetchBoard();   // show freshly-pulled data
+  }} catch (e) {{
+    setStatus("Sync failed — are you online? " + e.message, true);
+  }}
+}}
+
 fetchBoard();
+initSync();
 </script>
 </body>
 </html>
